@@ -1,0 +1,20 @@
+#!/bin/sh /lib/init/init-d-script
+### BEGIN INIT INFO
+# Provides:          etcd
+# Required-Start:    $syslog $time $remote_fs $network
+# Required-Stop:     $syslog $time $remote_fs $network
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: etcd daemon
+# Description:       etcd - highly-available key value store
+### END INIT INFO
+
+NAME=etcd
+DAEMON=/usr/bin/etcd
+START_ARGS="--chuid etcd --make-pidfile --background"
+
+set -a
+ETCD_NAME="$(hostname)"
+ETCD_DATA_DIR="/var/lib/etcd/default"
+[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+set +a

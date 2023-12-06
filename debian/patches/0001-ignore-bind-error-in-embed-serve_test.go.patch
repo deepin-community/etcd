@@ -1,0 +1,36 @@
+From: Shengjing Zhu <zhsj@debian.org>
+Date: Wed, 7 Oct 2020 01:01:05 +0800
+Subject: ignore bind error in embed/serve_test.go
+
+In autopkgtest-go, this test will be run when etcd is running.
+etcd-server is installed, then the service is started by default.
+
+Forwarded: not-needed
+---
+ embed/serve_test.go | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/embed/serve_test.go b/embed/serve_test.go
+index 3885645..ca048a6 100644
+--- a/embed/serve_test.go
++++ b/embed/serve_test.go
+@@ -16,6 +16,7 @@ package embed
+ 
+ import (
+ 	"io/ioutil"
++	"net"
+ 	"os"
+ 	"testing"
+ 
+@@ -33,6 +34,10 @@ func TestStartEtcdWrongToken(t *testing.T) {
+ 	cfg.Dir = tdir
+ 	cfg.AuthToken = "wrong-token"
+ 	if _, err = StartEtcd(cfg); err != auth.ErrInvalidAuthOpts {
+-		t.Fatalf("expected %v, got %v", auth.ErrInvalidAuthOpts, err)
++		if _, ok := err.(*net.OpError); ok {
++			t.Skipf("got %v", err)
++		} else {
++			t.Fatalf("expected %v, got %v", auth.ErrInvalidAuthOpts, err)
++		}
+ 	}
+ }

@@ -1,0 +1,9 @@
+0001-ignore-bind-error-in-embed-serve_test.go.patch
+0002-only-warn-on-unsupported-arch.patch
+0003-Increase-the-given-latency-in-test.patch
+0004-Fix-goroutine-leak-in-clientv3-test.patch
+0005-grpc-1.32.patch
+0006-grpc-1.32-balancer.patch
+0007-datadriven-1.0.2.patch
+0008-fix-TestCorruptedBackupFileCheck-on-big-endian.patch
+0009-Skip-flaky-TestReadWriteTimeout.patch
