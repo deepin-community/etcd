@@ -1,4 +1,34 @@
 #!/usr/bin/make -f
 
+export DH_GOLANG_GO_GENERATE := 1
+export DH_GOLANG_EXCLUDES := tools
+export DH_GOLANG_INSTALL_EXTRA := $(shell find . -name fixtures-expired) \
+                                  $(shell find . -name fixtures)
+
+# The ignored pkgs are aligned with upstream ./test file,
+# see variables IGNORE_PKGS and INTEGRATION_PKGS in ./test
+export TEST_EXCLUDES := cmd/ etcdserverpb rafttest gopath.proto v3lockpb v3electionpb \
+                        integration e2e contrib functional
+
 %:
-	dh $@
+	dh $@ --buildsystem=golang --with=golang --builddirectory=_build
+
+override_dh_auto_test:
+	DH_GOLANG_EXCLUDES="$(DH_GOLANG_EXCLUDES) $(TEST_EXCLUDES)" dh_auto_test -O--no-parallel -- -run=Test
+
+execute_after_dh_auto_test:
+	find _build -type s -delete
+
+# Handle package name (etcd-server) != service name (etcd)
+override_dh_installinit:
+	dh_installinit -p etcd-server --name=etcd
+override_dh_installsystemd:
+	dh_installsystemd -p etcd-server --name=etcd
+
+# autopktest-pkg-go integration runs "debian/rules build", which is a no-op due
+# to a script "build" present in the upstream source. This (PHONY) target
+# overrides this.
+build:
+	dh build --buildsystem=golang --with=golang --builddirectory=_build
+
+.PHONY: build

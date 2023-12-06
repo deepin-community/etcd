@@ -1,0 +1,7 @@
+usr/bin/etcd-agent
+usr/bin/etcd-proxy
+usr/bin/etcd-runner
+usr/bin/etcd-tester
+usr/bin/etcd2-backup-coreos
+usr/bin/raftexample
+

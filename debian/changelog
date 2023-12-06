@@ -1,5 +1,674 @@
-template-repository (1.0-1) unstable; urgency=medium
+etcd (3.4.23-4) unstable; urgency=medium
 
-  * Initial release
+  * Team upload.
+  * Add patch to skip flaky TestReadWriteTimeout
+  * Add vip-manager << 1.0.2-5~ to Breaks
 
- -- Tsic404 <liuheng@deepin.org>  Sat, 28 Jan 2023 13:46:49 +0800
+ -- Shengjing Zhu <zhsj@debian.org>  Mon, 09 Jan 2023 19:29:55 +0800
+
+etcd (3.4.23-3) unstable; urgency=medium
+
+  * Team upload.
+  * Fix TestCorruptedBackupFileCheck on big-endian
+
+ -- Shengjing Zhu <zhsj@debian.org>  Wed, 04 Jan 2023 19:09:06 +0800
+
+etcd (3.4.23-2) unstable; urgency=medium
+
+  * Team upload.
+  * Drop etcd transitional package
+  * Update Standards-Version to 4.6.2 (no changes)
+  * Add github.com/coreos/etcd to Go-Import-Path as well
+  * Remove all options from default.
+    Duplicated with upstream documentation
+  * Rewrite sysv init with init-d-script
+  * Update manpages
+
+ -- Shengjing Zhu <zhsj@debian.org>  Mon, 02 Jan 2023 21:49:43 +0800
+
+etcd (3.4.23-1) unstable; urgency=medium
+
+  * Team upload.
+  * New upstream version 3.4.23
+    + Address CVE-2018-1098 CVE-2018-1099:
+      Mitigate CSRF and DNS Rebinding attacks.
+      Added --host-whitelist option.
+  * Refresh patches. Drop:
+    - 0005-go1.14-cipher.patch
+    - 0007-switch-to-creack-pty.patch
+    - 0008-use-TLS.Config.MaxVersion-to-TLS-1.2.patch
+  * Change Go-Import-Path to go.etcd.io/etcd
+  * Add patch for datadriven 1.0.2
+  * Exclude tools when building
+  * Fix package name in integration test
+  * Install symlink for old path github.com/coreos/etcd
+  * Add Breaks in golang-etcd-server-dev package
+    + golang-github-docker-docker-dev
+    + nextcloud-spreed-signaling
+
+ -- Shengjing Zhu <zhsj@debian.org>  Sun, 01 Jan 2023 23:54:56 +0800
+
+etcd (3.3.25+dfsg-8) unstable; urgency=medium
+
+  * Team upload.
+
+  [ Sam Q ]
+  * Fix for correcting error searching new upstream
+
+  [ Shengjing Zhu ]
+  * Backport grpc 1.32 support
+
+ -- Shengjing Zhu <zhsj@debian.org>  Sat, 29 Oct 2022 20:29:46 +0800
+
+etcd (3.3.25+dfsg-7) unstable; urgency=medium
+
+  * Team upload.
+
+  [ Shengjing Zhu ]
+  * Switch autopkgtest to the new Architecture: field
+
+  [ Reinhard Tartler ]
+  * Avoid postinst crashes, Closes: #889714
+
+ -- Reinhard Tartler <siretart@tauware.de>  Thu, 24 Feb 2022 22:18:53 -0500
+
+etcd (3.3.25+dfsg-6) unstable; urgency=medium
+
+  * Team upload.
+  * Use packaged library
+    + golang-github-grpc-ecosystem-go-grpc-middleware-dev
+    + golang-github-soheilhy-cmux-dev
+    + golang-github-tmc-grpc-websocket-proxy-dev
+
+ -- Shengjing Zhu <zhsj@debian.org>  Sat, 24 Oct 2020 16:01:47 +0800
+
+etcd (3.3.25+dfsg-5) unstable; urgency=medium
+
+  * Team upload.
+  * Upload to unstable
+  * Rework goroutine leak patch
+  * Disable parallel test to improve stability on slow arch
+  * Adapt manpage and default config for 3.3 release
+
+ -- Shengjing Zhu <zhsj@debian.org>  Sat, 10 Oct 2020 03:12:37 +0800
+
+etcd (3.3.25+dfsg-4) experimental; urgency=medium
+
+  * Team upload.
+  * Not exit immediately on unsupported arch (Closes: #952536)
+  * Add back some old patches to fix flaky tests
+
+ -- Shengjing Zhu <zhsj@debian.org>  Thu, 08 Oct 2020 02:58:49 +0800
+
+etcd (3.3.25+dfsg-3) experimental; urgency=medium
+
+  * Team upload.
+  * Backport patch to fix tls test failure
+
+ -- Shengjing Zhu <zhsj@debian.org>  Thu, 08 Oct 2020 00:03:52 +0800
+
+etcd (3.3.25+dfsg-2) experimental; urgency=medium
+
+  * Team upload.
+  * Fix tests failed with Ctty not valid in child.
+    Address: #971158
+  * Rewrite integration and functional tests in autopkgtest
+  * Use execute_after_dh_auto_test
+  * Update copyright
+  * Fix file permission in golang-etcd-server-dev
+  * Add Pre-Depends to etcd-server
+
+ -- Shengjing Zhu <zhsj@debian.org>  Wed, 07 Oct 2020 23:23:47 +0800
+
+etcd (3.3.25+dfsg-1) experimental; urgency=medium
+
+  * Team upload.
+  * New upstream release 3.3.25
+    + CVE-2020-15136 (Closes: #968752)
+      Gateway TLS authentication only applies to endpoints detected in DNS SRV
+      records
+      https://github.com/etcd-io/etcd/security/advisories/GHSA-wr2v-9rpq-c35q
+    + CVE-2020-15115 (Closes: #968740)
+      No minimum password length
+      https://github.com/etcd-io/etcd/security/advisories/GHSA-4993-m7g5-r9hh
+    + CVE-2020-15114
+      Gateway can include itself as an endpoint resulting in resource
+      exhaustion
+      https://github.com/etcd-io/etcd/security/advisories/GHSA-2xhq-gv6c-p224
+    + CVE-2020-15113
+      Directories created via os.MkdirAll are not checked for permissions
+      https://github.com/etcd-io/etcd/security/advisories/GHSA-chh6-ppwq-jh92
+    + CVE-2020-15112
+      An entry with large index causes panic in WAL ReadAll method
+      https://github.com/etcd-io/etcd/security/advisories/GHSA-m332-53r6-2w93
+    + CVE-2020-15106
+      A large slice causes panic in decodeRecord method
+      https://github.com/etcd-io/etcd/security/advisories/GHSA-p4g4-wgrh-qrg2
+  * Disable some failed tests (Closes: #971158)
+  * Bump debhelper compat to 13
+  * Add Rules-Requires-Root
+  * Bump Standards-Version to 4.5.0 (no changes)
+
+ -- Shengjing Zhu <zhsj@debian.org>  Tue, 06 Oct 2020 22:58:53 +0800
+
+etcd (3.2.26+dfsg-8) unstable; urgency=medium
+
+  * Team upload.
+  * debian/patches/embed_tests_fix.patch: New patch, skips
+    TestStartEtcdWrongToken test which fails if a etcd server is already
+    running independently of the testsuite.
+
+ -- Michael Banck <michael.banck@credativ.de>  Sun, 31 May 2020 10:34:10 +0200
+
+etcd (3.2.26+dfsg-7) unstable; urgency=medium
+
+  * Team upload.
+  * debian/rules: Provide an explicit and PHONY build rule, as before
+    `debian/rules build' was a no-op which broke autopkgtest-pkg-go
+    integration.(Closes: #956424)
+  * debian/patches/series: Reactivate and update skip-dev-ptmx-error.patch.
+  * debian/patches/e2e_tests_fix.patch,
+    debian/patches/functional_tests_fix.patch,
+    debian/patches/integration_tests_fix.patch: New patches, fix issues in the
+    integration tests.
+  * debian/rules: Add new rule autopkgtest which runs the integration tests
+    during autopkgtest, as defined by all tests which are not part of
+    INTEGRATION_TEST_EXCLUDES.
+
+ -- Michael Banck <michael.banck@credativ.de>  Fri, 29 May 2020 19:01:18 +0200
+
+etcd (3.2.26+dfsg-6) unstable; urgency=medium
+
+  * Team upload.
+  * Rebuild using newer golang-golang-x-net-dev
+
+ -- Stephen Gelman <ssgelm@debian.org>  Fri, 10 Jan 2020 09:29:10 -0600
+
+etcd (3.2.26+dfsg-5) unstable; urgency=medium
+
+  * Team upload.
+  * Add patch to fix FTBFS with newer prometheus version (Closes: #947939)
+  * Build-Depends on golang-github-prometheus-client-golang-dev (>= 1.0.0~)
+
+ -- Stephen Gelman <ssgelm@debian.org>  Fri, 10 Jan 2020 01:15:15 -0600
+
+etcd (3.2.26+dfsg-4) unstable; urgency=medium
+
+  * Team upload.
+
+  [ Arnaud Rebillout ]
+  * Add upstream patch to build against golang-google-grpc-dev in sid.
+  * Add upstream patch to fix test with go 1.12.
+
+  [ Dmitry Smirnov ]
+  * (Build-)Depends:
+    - golang-github-dgrijalva-jwt-go-v3-dev
+    + golang-github-dgrijalva-jwt-go-dev (>= 3.2.0~)
+
+ -- Arnaud Rebillout <arnaud.rebillout@collabora.com>  Fri, 25 Oct 2019 16:51:45 +1100
+
+etcd (3.2.26+dfsg-3) unstable; urgency=medium
+
+  * Team upload.
+  * Add patch to increase the latency in test to support mips
+  * Fix override_dh_auto_test-does-not-check-DEB_BUILD_OPTIONS
+  * Don't ship etcd2-backup-coreos, which is intended for coreos
+  * Add spelling-error.patch
+  * Remove obsoleted lintian-overrides
+  * Update etcd and etcdctl manpage for 3.2.26 version
+
+ -- Shengjing Zhu <zhsj@debian.org>  Mon, 25 Feb 2019 02:25:00 +0800
+
+etcd (3.2.26+dfsg-2) unstable; urgency=medium
+
+  * Team upload.
+  * Add missing systemd service after compat bumped to 11
+  * Only run unit tests when building, and don't ignore the results
+  * Add patch to fix goroutine leak in TestDialNoTimeout
+
+ -- Shengjing Zhu <zhsj@debian.org>  Sun, 24 Feb 2019 23:57:42 +0800
+
+etcd (3.2.26+dfsg-1) unstable; urgency=medium
+
+  * Team upload.
+
+  [ Arnaud Rebillout ]
+  * {Build-,}Depends on golang-github-xiang90-probing-dev (>= 0.0.1~)
+  * Build-Depends on golang-any (>= 2:1.10~)
+
+  [ Shengjing Zhu ]
+  * New upstream release v3.2.26
+    + Address CVE-2018-16886 (Closes: #923008)
+      Disable CommonName authentication for gRPC-gateway
+      gRPC-gateway proxy requests to etcd server use the etcd
+      client server TLS certificate. If that certificate contains
+      CommonName we do not want to use that for authentication as
+      it could lead to permission escalation.
+  * Remove pgpsigurlmangle in debian/watch.
+    Upstream didn't sign the source tarball since v3.2.26
+  * Update pkg-go team address to team+pkg-go@tracker.debian.org
+  * Update debhelper and compat to 11
+  * Update etcd server default env from upstream docs
+  * Remove etcd-dump-db, etcd-dump-logs in etcd-client package
+    upstream didn't provide these tools in v3.2.26 tarball
+  * Add golang-go.uber-zap-dev to {Build-,}Depends
+  * Remove socket files created during test phase
+
+ -- Shengjing Zhu <zhsj@debian.org>  Sun, 24 Feb 2019 02:26:48 +0800
+
+etcd (3.2.18+dfsg-1) unstable; urgency=medium
+
+  [ Alexandre Viau ]
+  * Point Vcs-* urls to salsa.debian.org.
+
+  [ Anthony Fok ]
+  * New upstream release.
+  * Bump Standards-Version to 4.1.4 (no change)
+  * Remove match-ugorji-go-codec-native-time.Time-support.patch
+    because github.com/ugorji/go/codec@v1.1.1 includes changes to support
+    both time.Time and *time.Time correctly for backward compatibility.
+    See https://github.com/coreos/etcd/issues/9447
+  * {Build-,}Depends on golang-github-ugorji-go-codec-dev (>= 1.1.1~)
+
+ -- Anthony Fok <foka@debian.org>  Tue, 10 Apr 2018 05:02:04 -0600
+
+etcd (3.2.17+dfsg-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Fix FTBFS:
+     - New upstream release contains regenerated gRPC *.pb.go and *.pb.gw.po
+       files (since etcd 3.2.10) which build correctly with the updated gPRC
+       packages in Debian.
+     - Add "export DH_GOLANG_GO_GENERATE := 1" to debian/rules
+       to fix FTBFS by re-generating keys.generated.go at build time
+       with the same version of codecgen as golang-github-ugorji-go-codec-dev.
+       See also https://github.com/coreos/etcd/issues/8715.
+     - Add "Depends: golang-github-ugorji-go-codec" to have codecgen available
+       at build time.
+    (Closes: #890939)
+  * Depend on golang-github-coreos-bbolt-dev, replacing
+    golang-github-boltdb-bolt-dev, to "address backend database size
+    issue" (since etcd 3.2.10)
+  * Revert incoming-outgoing-context.patch (commit 5e059fd from upstream)
+    which has been backported upstream in commit d62e39d from v3.3 branch
+    to v3.2 branch since etcd 3.2.10
+  * Add match-ugorji-go-codec-native-time.Time-support.patch, which updates
+    etcd/client/keys{,_test}.go to match the latest
+    golang-github-ugorji-go-codec-dev to prevent a new "cannot use
+    x.Expiration (type *time.Time) as type time.Time in argument to
+    r.encDriver.EncodeTime" error, see https://github.com/ugorji/go/issues/224
+    and https://github.com/ugorji/go/commit/8badb25.
+  * Apply "cme fix dpkg" to debian/control,
+    bumping Standards-Version to 4.1.3, setting Priority to optional,
+    and adding Testsuite: autopkgtest-pkg-go, etc.
+  * Add myself to the list of Uploaders
+
+ -- Anthony Fok <foka@debian.org>  Fri, 16 Mar 2018 18:20:05 -0600
+
+etcd (3.2.9+dfsg-3) unstable; urgency=medium
+
+  * Team upload.
+  * Exclude the sockets from the MD5 sum generation. (Closes: #855876)
+  * Use Priority optional
+  * Update team name
+  * Use wrap-and-sort on debian files
+  * Remove dh_golang and golang-any from Depends of source package
+  * Use HTTPS URL for d/copyright
+  * Switch to XS-Go-Import-Path in d/control
+
+ -- Dr. Tobias Quathamer <toddy@debian.org>  Mon, 20 Nov 2017 23:16:35 +0100
+
+etcd (3.2.9+dfsg-2) unstable; urgency=medium
+
+  * Team upload.
+  * Fix package dependency typo. (Closes: #879791)
+
+ -- Michael Lustfield <michael@lustfield.net>  Wed, 25 Oct 2017 17:48:26 -0500
+
+etcd (3.2.9+dfsg-1) unstable; urgency=medium
+
+  * Team upload.
+
+  [ Tim Potter ]
+  * New upstream release.
+
+  [ Paul Tagliamonte ]
+  * Remove Built-Using from arch:all transitional package
+
+  [ Tim Potter ]
+  * Apply commit 5e059fd from upstream
+  * Update test fixture modification patch
+  * Update /dev/ptmx input/output error patch
+  * Another update to test fixture path patch
+
+  [ Andrew Shadura ]
+  * Ignore test failures.
+
+ -- Andrew Shadura <andrewsh@debian.org>  Tue, 24 Oct 2017 14:33:51 +0100
+
+etcd (3.1.8+dfsg-2) unstable; urgency=medium
+
+  * Fix upgrade problem caused by client/server package split. Thanks
+    to Olafur St. Arnarsson for the patch. (Closes #863976)
+
+ -- Tim Potter <tpot@hpe.com>  Mon, 05 Jun 2017 09:03:52 +1000
+
+etcd (3.1.8+dfsg-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Tighten B-D on golang-github-coreos-pkg-dev to build in stretch.
+    (Closes: #858241)
+  * Change section from "devel" to "net. (Closes: #840681)
+  * Separate into client and server packages. (Closes: #815453)
+
+ -- Tim Potter <tpot@hpe.com>  Wed, 24 May 2017 10:59:25 +1000
+
+etcd (3.1.4+dfsg-1) unstable; urgency=medium
+
+  * New upstream release.
+
+ -- Tim Potter <tpot@hpe.com>  Fri, 24 Mar 2017 11:52:26 +1100
+
+etcd (3.1.3+dfsg-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Suppress binary-without-manpage Lintian warnings.
+
+ -- Tim Potter <tpot@hpe.com>  Tue, 21 Mar 2017 09:43:07 +1100
+
+etcd (3.1.2+dfsg-1) unstable; urgency=medium
+
+  * New upstream release.
+
+ -- Tim Potter <tpot@hpe.com>  Wed, 08 Mar 2017 15:06:16 +1100
+
+etcd (3.1.1+dfsg-2) unstable; urgency=medium
+
+  * Upload to unstable. (Closes: #846542)
+  * Fix test suite failures in Debian build environment and
+    ensure no test junk is accidentally mispackaged. (Closes: #855876)
+  * Fix various Lintian problems.
+
+ -- Tim Potter <tpot@hpe.com>  Fri, 03 Mar 2017 07:11:16 +1100
+
+etcd (3.1.1+dfsg-1) experimental; urgency=medium
+
+  * New upstream release.
+
+ -- Tim Potter <tpot@hpe.com>  Mon, 20 Feb 2017 15:27:52 +1100
+
+etcd (3.1.0-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Change to use upstream source generated by dh-make-golang, and
+    remove antiquated package build system.
+  * Update debian/copyright file for new major release.
+  * Build-Depends:
+      + golang-github-karlseguin-ccache-dev
+      + golang-github-cockroachdb-cmux-dev
+      + golang-github-urfave-cli-dev
+      + golang-github-grpc-ecosystem-grpc-gateway-dev
+      + golang-github-grpc-ecosystem-go-grpc-prometheus-dev
+  * Add lsb-base as install dependency for binary package.
+  * Remove bogus Build-Depends from -dev binary package.
+
+ -- Tim Potter <tpot@hpe.com>  Thu, 09 Feb 2017 13:48:12 +1100
+
+etcd (2.3.7+dfsg-5) unstable; urgency=medium
+
+  [ Team upload ]
+  * Regenerate pb.go files with gogo-protobuf v0.3 (Closes: #835750)
+  * Patch to fix SdNotify() API change in coreos-go-systemd package.
+
+ -- Tim Potter <tpot@hpe.com>  Wed, 05 Oct 2016 17:18:46 +1100
+
+etcd (2.3.7+dfsg-4) unstable; urgency=medium
+
+  * New patch to disable TestTransportErrorc (Closes: #831789).
+
+ -- Dmitry Smirnov <onlyjob@debian.org>  Wed, 20 Jul 2016 09:51:34 +1000
+
+etcd (2.3.7+dfsg-3) unstable; urgency=medium
+
+  * New patch to disable "TestLessorRevoke" test.
+
+ -- Dmitry Smirnov <onlyjob@debian.org>  Thu, 14 Jul 2016 23:25:09 +1000
+
+etcd (2.3.7+dfsg-2) unstable; urgency=medium
+
+  * Tests: disabled "TestWaitTime" test due to failure on [ppc64el].
+  * Renamed "cheggaaa-pb-dev" to "cheggaaa-pb.v1-dev" (Closes: #829048).
+    Also commented currently unused package. Thanks, Peter Colberg.
+  * (Build-)Depends: removed obsolete -clockwork-dev alternative
+    (Closes: #830388).
+
+ -- Dmitry Smirnov <onlyjob@debian.org>  Sun, 10 Jul 2016 08:52:59 +1000
+
+etcd (2.3.7+dfsg-1) unstable; urgency=medium
+
+  * New upstream release [June 2016].
+  * Build-Depends += "curl".
+  * Disabled failing tests; don't ignore test failures any more.
+
+ -- Dmitry Smirnov <onlyjob@debian.org>  Mon, 27 Jun 2016 14:19:51 +1000
+
+etcd (2.3.6+dfsg-1) unstable; urgency=medium
+
+  * New upstream release [May 2016].
+
+ -- Dmitry Smirnov <onlyjob@debian.org>  Mon, 06 Jun 2016 00:05:45 +1000
+
+etcd (2.3.5+dfsg-1) unstable; urgency=medium
+
+  * New upstream release [May 2016].
+  * Fixed Vcs-Git URL.
+
+ -- Dmitry Smirnov <onlyjob@debian.org>  Sat, 21 May 2016 16:19:43 +1000
+
+etcd (2.3.3+dfsg-1) unstable; urgency=medium
+
+  * New upstream release [April 2016].
+  * Standards-Version: 3.9.8.
+
+ -- Dmitry Smirnov <onlyjob@debian.org>  Sat, 07 May 2016 20:33:55 +1000
+
+etcd (2.3.2+dfsg-1) unstable; urgency=medium
+
+  * New upstream release [April 2016].
+  * control: drop Built-Using from -dev package.
+  * Build-Depends:
+    = golang-github-boltdb-bolt-dev (>= 1.2.0~)
+
+ -- Dmitry Smirnov <onlyjob@debian.org>  Mon, 25 Apr 2016 14:46:05 +1000
+
+etcd (2.3.1+dfsg-1) unstable; urgency=medium
+
+  * New upstream release [April 2016].
+  * Removed obsolete "rakyll2cheggaaa.patch".
+  * Standards-Version: 3.9.7.
+  * Fix "readlink" invocation in the init.d script.
+  * rules: correction to build with gogoprotobuf 0.2.
+  * Build-Depends:
+    - golang-etcd-dev | golang-github-coreos-go-etcd-dev
+    + golang-github-bgentry-speakeasy-dev
+    + golang-github-codegangsta-cli-dev (>= 0.0~git20151221~)
+    + golang-github-coreos-gexpect-dev
+    + golang-github-gogo-protobuf-dev (>= 0.2~)
+    + gogoprotobuf
+    + golang-github-mattn-go-runewidth-dev
+    + golang-github-olekukonko-tablewriter-dev
+    + golang-github-xiang90-probing-dev
+
+ -- Dmitry Smirnov <onlyjob@debian.org>  Wed, 06 Apr 2016 12:40:12 +1000
+
+etcd (2.2.5+dfsg-1) unstable; urgency=medium
+
+  * New upstream release [February 2016] (Closes: #814404).
+  * Build-Depends:
+    - golang-github-bradfitz-http2-dev
+    - golang-golang-x-oauth2-dev
+    - golang-google-cloud-compute-metadata-dev
+    - golang-google-grpc-dev
+    + golang-google-grpc-dev (>= 0.0~git20151002~)
+    + golang-github-akrennmair-gopcap-dev
+    + golang-pb-dev | golang-github-cheggaaa-pb-dev
+    + golang-github-coreos-pkg-dev
+    + golang-github-cpuguy83-go-md2man-dev
+    + golang-github-kballard-go-shellquote-dev
+    + golang-pty-dev
+    + golang-github-russross-blackfriday-dev
+    + golang-github-shurcool-sanitized-anchor-name-dev
+    + golang-github-spacejam-loghisto-dev
+    + golang-github-spf13-cobra-dev
+    + golang-github-spf13-pflag-dev
+  * Updated Vcs URLs (vcs-field-uses-insecure-uri).
+  * Switch to bundled "github.com/gogo/protobuf".
+
+ -- Dmitry Smirnov <onlyjob@debian.org>  Fri, 12 Feb 2016 11:23:57 +1100
+
+etcd (2.2.3+dfsg-1) unstable; urgency=medium
+
+  * New upstream release [December 2015].
+  * etcd.service: add "Alias=etcd2.service".
+
+ -- Dmitry Smirnov <onlyjob@debian.org>  Mon, 04 Jan 2016 17:32:15 +1100
+
+etcd (2.2.2+dfsg-2) unstable; urgency=medium
+
+  * Added goland dependencies to -dev package Depends.
+
+ -- Dmitry Smirnov <onlyjob@debian.org>  Wed, 16 Dec 2015 09:37:23 +1100
+
+etcd (2.2.2+dfsg-1) unstable; urgency=medium
+
+  * New upstream release [November 2015].
+  * Build-Depends:
+    + golang-github-ugorji-go-codec-dev (>= 0.0~git20151112~).
+    + golang-github-beorn7-perks-dev
+  * init.d: log to syslog.
+    + Depends += "pipexec".
+
+ -- Dmitry Smirnov <onlyjob@debian.org>  Tue, 24 Nov 2015 09:58:16 +1100
+
+etcd (2.2.1+dfsg-1) unstable; urgency=medium
+
+  * New upstream release [October 2015].
+    - switch to bundled "github.com/ugorji/go" due to FTBFS.
+  * Un-bundled "golang-google-grpc-dev".
+  * Allow Etcd to notify systemd for readiness through service "Type=notify"
+    (Closes: #800646). Thanks, Matthias Urlichs.
+  * Dropped obsolete lintian-overrides.
+  * Corrected "duplicate-short-description".
+
+ -- Dmitry Smirnov <onlyjob@debian.org>  Wed, 28 Oct 2015 08:16:14 +1100
+
+etcd (2.2.0+dfsg-2) unstable; urgency=medium
+
+  * Build-Depends: swap alternatives to put non-existent packages last.
+  * .service: less aggressive restart (on-failure --> on-abnormal).
+
+ -- Dmitry Smirnov <onlyjob@debian.org>  Sun, 13 Sep 2015 14:44:36 +1000
+
+etcd (2.2.0+dfsg-1) unstable; urgency=medium
+
+  [ Tianon Gravi ]
+  * Update a few old-style "golang-" Build-Depends values to use "|" with
+    their new proper names to help with transitioning the dependencies.
+    See https://bugs.debian.org/797903#10, for example.
+
+  [ Dmitry Smirnov ]
+  * New upstream release [September 2015].
+  * Added etcd(1) man page.
+  * Sorted list of packages in Build-Depends.
+  * Build-Depends:
+    + golang-github-coreos-go-systemd-dev
+    + golang-golang-x-sys-dev
+    - golang-mreiferson-httpclient-dev (unused).
+    + golang-google-cloud-compute-metadata-dev
+  * Provides:
+    - golang-github-coreos-go-etcd-dev
+    + golang-github-coreos-etcd-dev
+  * rules: --parallel.
+  * New annotated .default file "/etc/default/etcd".
+  * Re-written init scripts.
+
+ -- Dmitry Smirnov <onlyjob@debian.org>  Sat, 12 Sep 2015 03:12:52 +1000
+
+etcd (2.1.3+dfsg2-1) unstable; urgency=medium
+
+  * New upstream release [September 2015].
+  * Build-Depends:
+    + golang-golang-x-net-dev
+    + golang-protobuf-extensions-dev
+  * Provides: "golang-github-coreos-go-etcd-dev" (policy-compliant package).
+  * Copyright: more Files-Excluded.
+  * Added "etcdctl.1" man page.
+
+ -- Dmitry Smirnov <onlyjob@debian.org>  Tue, 08 Sep 2015 15:47:20 +1000
+
+etcd (2.1.2+dfsg1-1) unstable; urgency=medium
+
+  * Upload to unstable (Closes: #788762).
+
+  [ Jelmer Vernooij ]
+  * Drop dependency on golang-raft, which is no longer used.
+
+  [ Dmitry Smirnov ]
+  * New upstream Release [August 2015].
+  * Re-build .pb.go files.
+  * control: updated Vcs-Browser URL.
+  * postinst: check if user exist.
+  * systemd/init.d/default:
+    + use hostname as default instance name.
+    + consistently load ETCD_NAME and DATA_DIR.
+  * init.d:
+    + added LSB descriptions.
+    + added "status" support.
+    + replaced "echo" with LSB functions.
+    + stop daemon with "--retry=TERM/30/KILL/5" to fix restart.
+  * rules:
+    + always run tests but ignore failures.
+    + invoke DH --with systemd.
+  * rules/override_dh_clean: remove Files-Excluded.
+  * cleanup_third_party: limit find scope for a little speed-up.
+  * Build-Depends:
+    - golang-gogoprotobuf-dev
+    + golang-gogoprotobuf-dev (>= 0.0~git20150828~)
+    + libprotobuf-dev
+    + protobuf-compiler
+    + golang-clockwork-dev
+    + golang-procfs-dev
+    + golang-github-bradfitz-http2-dev
+    + golang-github-boltdb-bolt-dev
+    + golang-github-google-btree-dev
+    + golang-github-ugorji-go-codec-dev
+    + golang-glog-dev
+    + golang-go-semver-dev
+    + golang-prometheus-client-dev
+    + golang-go.crypto-dev
+    + golang-golang-x-oauth2-dev
+  * Added myself to Uploaders.
+
+ -- Dmitry Smirnov <onlyjob@debian.org>  Wed, 02 Sep 2015 11:50:46 +1000
+
+etcd (2.0.8-2) experimental; urgency=medium
+
+  * Add support for setting up SSL in default config.
+  * Fix service stop.
+  * debian/rules: run tests on amd64.
+
+ -- Jelmer Vernooij <jelmer@debian.org>  Mon, 06 Apr 2015 21:22:41 +0000
+
+etcd (2.0.8-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Bump standards version to 3.9.6 (no changes).
+  * Add patch 01_race_amd64: only specify --race to test on amd64.
+
+ -- Jelmer Vernooij <jelmer@debian.org>  Tue, 17 Feb 2015 21:36:36 +0100
+
+etcd (2.0.0-1) experimental; urgency=medium
+
+  * Initial release. (Closes: #741065)
+
+ -- Jelmer Vernooij <jelmer@debian.org>  Sat, 08 Mar 2014 15:45:59 +0000
