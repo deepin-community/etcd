@@ -1,0 +1,3 @@
+- simple debconf integration
+  - first question: proxy / master
+- SSL certificate initialization

@@ -1,0 +1,58 @@
+#!/bin/bash
+
+set -ex
+
+export DEB_BUILD_OPTIONS=nocheck
+
+./debian/rules build
+
+ln -sf _build/bin bin
+
+# copy from ../../test functional_pass
+
+function functional_pass {
+  	# Clean up any data and logs from previous runs
+  	rm -rf /tmp/etcd-functional-* /tmp/etcd-functional-*.backup
+
+	for a in 1 2 3; do
+		./bin/etcd-agent --network tcp --address 127.0.0.1:${a}9027 &
+		pid="$!"
+		agent_pids="${agent_pids} $pid"
+	done
+
+	for a in 1 2 3; do
+		echo "Waiting for 'etcd-agent' on ${a}9027..."
+		while ! nc -z localhost ${a}9027; do
+			sleep 1
+		done
+	done
+
+	echo "functional test START!"
+	./bin/etcd-tester --config ./functional.yaml && echo "'etcd-tester' succeeded"
+	ETCD_TESTER_EXIT_CODE=$?
+	echo "ETCD_TESTER_EXIT_CODE:" ${ETCD_TESTER_EXIT_CODE}
+
+	# shellcheck disable=SC2206
+	agent_pids=($agent_pids)
+	kill -s TERM "${agent_pids[@]}" || true
+
+	if [[ "${ETCD_TESTER_EXIT_CODE}" -ne "0" ]]; then
+		printf "\n"
+		echo "FAILED! 'tail -1000 /tmp/etcd-functional-1/etcd.log'"
+		tail -1000 /tmp/etcd-functional-1/etcd.log
+
+		printf "\n"
+		echo "FAILED! 'tail -1000 /tmp/etcd-functional-2/etcd.log'"
+		tail -1000 /tmp/etcd-functional-2/etcd.log
+
+		printf "\n"
+		echo "FAILED! 'tail -1000 /tmp/etcd-functional-3/etcd.log'"
+		tail -1000 /tmp/etcd-functional-3/etcd.log
+
+		echo "--- FAIL: exit code" ${ETCD_TESTER_EXIT_CODE}
+		exit ${ETCD_TESTER_EXIT_CODE}
+	fi
+	echo "functional test PASS!"
+}
+
+functional_pass

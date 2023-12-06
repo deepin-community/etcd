@@ -1,0 +1,26 @@
+#!/bin/bash
+
+set -ex
+
+# ensure no other etcd server is running
+invoke-rc.d etcd stop || true
+pkill -9 etcd || true
+
+DH_GOLANG_INSTALL_EXTRA="$(find . -name fixtures-expired) $(find . -name fixtures) etcd.conf.yml.sample" \
+	dh_auto_configure -O--buildsystem=golang -O--builddirectory=_build
+BINDIR=_build/src/go.etcd.io/etcd/bin
+mkdir -p $BINDIR
+ln -sf /usr/bin/etcdctl $BINDIR/etcdctl
+ln -sf /usr/bin/etcd $BINDIR/etcd
+
+# Following doesn't work, since it expects the two have same major.minor version.
+# download old etcd-server for upgrading tests.
+# the tests are skipped if no etcd-last-release binary.
+# see tests/e2e/etcd_release_upgrade_test.go
+# apt-get download etcd-server/"$(lsb_release -sc)" || true
+# dpkg-deb --fsys-tarfile etcd-server_*.deb | tar -x --transform='s|.*|etcd-last-release|g' \
+# 	-C $BINDIR ./usr/bin/etcd || true
+
+INTEGRATION_TEST=(integration client/integration clientv3/integration tests/e2e)
+DH_GOLANG_BUILDPKG="${INTEGRATION_TEST[*]/#/go.etcd.io/etcd/}" \
+	dh_auto_test -O--buildsystem=golang -O--builddirectory=_build -- -run=Test -timeout=30m

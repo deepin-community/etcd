@@ -1,0 +1,2 @@
+## dpkg-maintscript-helper(1)
+dir_to_symlink /usr/share/gocode/src/github.com/coreos/etcd /usr/share/gocode/src/go.etcd.io/etcd 3.4.23-1~

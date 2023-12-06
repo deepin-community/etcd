@@ -1,0 +1,10 @@
+#!/bin/sh
+
+set -e
+
+#DEBHELPER#
+
+if [ "$1" = "purge" ]; then
+	deluser --system etcd || true
+	rm -rf /var/lib/etcd || true
+fi

@@ -1,0 +1,5 @@
+## etcd(1) daemon options
+## See "/usr/share/doc/etcd-server/op-guide/configuration.md.gz"
+## for available options.
+##
+## Use environment to override, for example: ETCD_NAME=default
