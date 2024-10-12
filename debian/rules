@@ -1,20 +1,23 @@
 #!/usr/bin/make -f
 
 export DH_GOLANG_GO_GENERATE := 1
-export DH_GOLANG_EXCLUDES := tools
+export DH_GOLANG_EXCLUDES := tools tests/functional/cmd contrib
 export DH_GOLANG_INSTALL_EXTRA := $(shell find . -name fixtures-expired) \
-                                  $(shell find . -name fixtures)
-
-# The ignored pkgs are aligned with upstream ./test file,
-# see variables IGNORE_PKGS and INTEGRATION_PKGS in ./test
-export TEST_EXCLUDES := cmd/ etcdserverpb rafttest gopath.proto v3lockpb v3electionpb \
-                        integration e2e contrib functional
+                                  $(shell find . -name fixtures) \
+                                  $(shell find . -name go.mod) \
+                                  tests/functional/functional.yaml
 
 %:
 	dh $@ --buildsystem=golang --with=golang --builddirectory=_build
 
+execute_after_dh_auto_build:
+	mv -v _build/bin/server _build/bin/etcd
+    # remove dangling symlinks. They are pointing to the "tests" package that
+    # we exclude further up
+	rm -vf _build/src/go.etcd.io/etcd/client/*/example_*.go
+
 override_dh_auto_test:
-	DH_GOLANG_EXCLUDES="$(DH_GOLANG_EXCLUDES) $(TEST_EXCLUDES)" dh_auto_test -O--no-parallel -- -run=Test
+	GOLANG_TEST_SHORT=true dh_auto_test -O--no-parallel -- -run=Test -short
 
 execute_after_dh_auto_test:
 	find _build -type s -delete

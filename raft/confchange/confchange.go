@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"strings"
 
-	"go.etcd.io/etcd/raft/quorum"
-	pb "go.etcd.io/etcd/raft/raftpb"
-	"go.etcd.io/etcd/raft/tracker"
+	"go.etcd.io/etcd/raft/v3/quorum"
+	pb "go.etcd.io/etcd/raft/v3/raftpb"
+	"go.etcd.io/etcd/raft/v3/tracker"
 )
 
 // Changer facilitates configuration changes. It exposes methods to handle
@@ -37,9 +37,11 @@ type Changer struct {
 // config is empty and initializes it with a copy of the incoming (=left)
 // majority config. That is, it transitions from
 //
-//     (1 2 3)&&()
+//	(1 2 3)&&()
+//
 // to
-//     (1 2 3)&&(1 2 3).
+//
+//	(1 2 3)&&(1 2 3).
 //
 // The supplied changes are then applied to the incoming majority config,
 // resulting in a joint configuration that in terms of the Raft thesis[1]
@@ -142,9 +144,6 @@ func (c Changer) Simple(ccs ...pb.ConfChangeSingle) (tracker.Config, tracker.Pro
 	if n := symdiff(incoming(c.Tracker.Voters), incoming(cfg.Voters)); n > 1 {
 		return tracker.Config{}, nil, errors.New("more than one voter changed without entering joint config")
 	}
-	if err := checkInvariants(cfg, prs); err != nil {
-		return tracker.Config{}, tracker.ProgressMap{}, nil
-	}
 
 	return checkAndReturn(cfg, prs)
 }
@@ -191,7 +190,6 @@ func (c Changer) makeVoter(cfg *tracker.Config, prs tracker.ProgressMap, id uint
 	nilAwareDelete(&cfg.Learners, id)
 	nilAwareDelete(&cfg.LearnersNext, id)
 	incoming(cfg.Voters)[id] = struct{}{}
-	return
 }
 
 // makeLearner makes the given ID a learner or stages it to be a learner once
@@ -324,10 +322,10 @@ func checkInvariants(cfg tracker.Config, prs tracker.ProgressMap) error {
 	if !joint(cfg) {
 		// We enforce that empty maps are nil instead of zero.
 		if outgoing(cfg.Voters) != nil {
-			return fmt.Errorf("Voters[1] must be nil when not joint")
+			return fmt.Errorf("cfg.Voters[1] must be nil when not joint")
 		}
 		if cfg.LearnersNext != nil {
-			return fmt.Errorf("LearnersNext must be nil when not joint")
+			return fmt.Errorf("cfg.LearnersNext must be nil when not joint")
 		}
 		if cfg.AutoLeave {
 			return fmt.Errorf("AutoLeave must be false when not joint")

@@ -15,12 +15,13 @@
 package rafttest
 
 import (
+	"bufio"
 	"fmt"
 	"math"
 	"strings"
 
-	"go.etcd.io/etcd/raft"
-	pb "go.etcd.io/etcd/raft/raftpb"
+	"go.etcd.io/etcd/raft/v3"
+	pb "go.etcd.io/etcd/raft/v3/raftpb"
 )
 
 // InteractionOpts groups the options for an InteractionEnv.
@@ -28,7 +29,7 @@ type InteractionOpts struct {
 	OnConfig func(*raft.Config)
 }
 
-// A Node is a member of a raft group tested via an InteractionEnv.
+// Node is a member of a raft group tested via an InteractionEnv.
 type Node struct {
 	*raft.RawNode
 	Storage
@@ -58,6 +59,18 @@ func NewInteractionEnv(opts *InteractionOpts) *InteractionEnv {
 			Builder: &strings.Builder{},
 		},
 	}
+}
+
+func (env *InteractionEnv) withIndent(f func()) {
+	orig := env.Output.Builder
+	env.Output.Builder = &strings.Builder{}
+	f()
+
+	scanner := bufio.NewScanner(strings.NewReader(env.Output.Builder.String()))
+	for scanner.Scan() {
+		orig.WriteString("  " + scanner.Text() + "\n")
+	}
+	env.Output.Builder = orig
 }
 
 // Storage is the interface used by InteractionEnv. It is comprised of raft's

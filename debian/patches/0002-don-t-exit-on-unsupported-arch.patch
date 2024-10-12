@@ -1,0 +1,19 @@
+From: Shengjing Zhu <zhsj@debian.org>
+Date: Thu, 8 Oct 2020 02:39:10 +0800
+Subject: don't exit on unsupported arch
+
+Forwarded: not-needed
+---
+ server/etcdmain/etcd.go | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/server/etcdmain/etcd.go b/server/etcdmain/etcd.go
+index 9921b89..1e6ac34 100644
+--- a/server/etcdmain/etcd.go
++++ b/server/etcdmain/etcd.go
+@@ -484,5 +484,4 @@ func checkSupportArch() {
+ 	}
+ 
+ 	lg.Error("running etcd on unsupported architecture since ETCD_UNSUPPORTED_ARCH is set", zap.String("arch", runtime.GOARCH))
+-	os.Exit(1)
+ }

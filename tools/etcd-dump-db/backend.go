@@ -17,13 +17,14 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
-	"go.etcd.io/etcd/auth/authpb"
 	"path/filepath"
 
-	"go.etcd.io/etcd/lease/leasepb"
-	"go.etcd.io/etcd/mvcc"
-	"go.etcd.io/etcd/mvcc/backend"
-	"go.etcd.io/etcd/mvcc/mvccpb"
+	"go.etcd.io/etcd/api/v3/authpb"
+	"go.etcd.io/etcd/server/v3/mvcc/buckets"
+
+	"go.etcd.io/etcd/api/v3/mvccpb"
+	"go.etcd.io/etcd/server/v3/lease/leasepb"
+	"go.etcd.io/etcd/server/v3/mvcc/backend"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -162,7 +163,7 @@ func iterateBucket(dbPath, bucket string, limit uint64, decode bool) (err error)
 
 func getHash(dbPath string) (hash uint32, err error) {
 	b := backend.NewDefaultBackend(dbPath)
-	return b.Hash(mvcc.DefaultIgnores)
+	return b.Hash(buckets.DefaultIgnores)
 }
 
 // TODO: revert by revision and find specified hash value

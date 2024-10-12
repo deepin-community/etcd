@@ -1,0 +1,322 @@
+From: Wei Fu <fuweid89@gmail.com>
+Date: Wed, 13 Sep 2023 11:12:16 +0100
+Subject: upgrade grpc-gateway from v1 to v2
+
+Signed-off-by: Wei Fu <fuweid89@gmail.com>
+Signed-off-by: Benjamin Wang <wachao@vmware.com>
+---
+ api/authpb/auth.proto                              |  2 +
+ api/etcdserverpb/etcdserver.proto                  |  2 +
+ api/etcdserverpb/raft_internal.proto               |  2 +
+ api/etcdserverpb/rpc.proto                         |  3 ++
+ api/membershippb/membership.proto                  |  2 +
+ api/mvccpb/kv.proto                                |  2 +
+ api/versionpb/version.proto                        | 30 ++++++++++++
+ scripts/genproto.sh                                | 54 ++++++++++++++++------
+ server/etcdserver/api/snap/snappb/snap.proto       |  2 +
+ .../api/v3election/v3electionpb/v3election.proto   |  2 +
+ server/etcdserver/api/v3lock/v3lockpb/v3lock.proto |  2 +
+ server/lease/leasepb/lease.proto                   |  2 +
+ server/wal/walpb/record.proto                      |  2 +
+ tools/mod/go.mod                                   |  2 +-
+ tools/mod/tools.go                                 |  4 +-
+ 15 files changed, 95 insertions(+), 18 deletions(-)
+ create mode 100644 api/versionpb/version.proto
+
+diff --git a/api/authpb/auth.proto b/api/authpb/auth.proto
+index 8f82b7c..5a7856b 100644
+--- a/api/authpb/auth.proto
++++ b/api/authpb/auth.proto
+@@ -3,6 +3,8 @@ package authpb;
+ 
+ import "gogoproto/gogo.proto";
+ 
++option go_package = "go.etcd.io/etcd/api/v3/authpb";
++
+ option (gogoproto.marshaler_all) = true;
+ option (gogoproto.sizer_all) = true;
+ option (gogoproto.unmarshaler_all) = true;
+diff --git a/api/etcdserverpb/etcdserver.proto b/api/etcdserverpb/etcdserver.proto
+index 25e0aca..ff639b9 100644
+--- a/api/etcdserverpb/etcdserver.proto
++++ b/api/etcdserverpb/etcdserver.proto
+@@ -3,6 +3,8 @@ package etcdserverpb;
+ 
+ import "gogoproto/gogo.proto";
+ 
++option go_package = "go.etcd.io/etcd/api/v3/etcdserverpb";
++
+ option (gogoproto.marshaler_all) = true;
+ option (gogoproto.sizer_all) = true;
+ option (gogoproto.unmarshaler_all) = true;
+diff --git a/api/etcdserverpb/raft_internal.proto b/api/etcdserverpb/raft_internal.proto
+index 68926e5..a1e7864 100644
+--- a/api/etcdserverpb/raft_internal.proto
++++ b/api/etcdserverpb/raft_internal.proto
+@@ -6,6 +6,8 @@ import "etcdserver.proto";
+ import "rpc.proto";
+ import "etcd/api/membershippb/membership.proto";
+ 
++option go_package = "go.etcd.io/etcd/api/v3/etcdserverpb";
++
+ option (gogoproto.marshaler_all) = true;
+ option (gogoproto.sizer_all) = true;
+ option (gogoproto.unmarshaler_all) = true;
+diff --git a/api/etcdserverpb/rpc.proto b/api/etcdserverpb/rpc.proto
+index 4ccc234..9ecac44 100644
+--- a/api/etcdserverpb/rpc.proto
++++ b/api/etcdserverpb/rpc.proto
+@@ -7,6 +7,9 @@ import "etcd/api/authpb/auth.proto";
+ 
+ // for grpc-gateway
+ import "google/api/annotations.proto";
++import "protoc-gen-openapiv2/options/annotations.proto";
++
++option go_package = "go.etcd.io/etcd/api/v3/etcdserverpb";
+ 
+ option (gogoproto.marshaler_all) = true;
+ option (gogoproto.unmarshaler_all) = true;
+diff --git a/api/membershippb/membership.proto b/api/membershippb/membership.proto
+index e63e9ec..0fa0313 100644
+--- a/api/membershippb/membership.proto
++++ b/api/membershippb/membership.proto
+@@ -3,6 +3,8 @@ package membershippb;
+ 
+ import "gogoproto/gogo.proto";
+ 
++option go_package = "go.etcd.io/etcd/api/v3/membershippb";
++
+ option (gogoproto.marshaler_all) = true;
+ option (gogoproto.sizer_all) = true;
+ option (gogoproto.unmarshaler_all) = true;
+diff --git a/api/mvccpb/kv.proto b/api/mvccpb/kv.proto
+index 23c911b..a93479c 100644
+--- a/api/mvccpb/kv.proto
++++ b/api/mvccpb/kv.proto
+@@ -3,6 +3,8 @@ package mvccpb;
+ 
+ import "gogoproto/gogo.proto";
+ 
++option go_package = "go.etcd.io/etcd/api/v3/mvccpb";
++
+ option (gogoproto.marshaler_all) = true;
+ option (gogoproto.sizer_all) = true;
+ option (gogoproto.unmarshaler_all) = true;
+diff --git a/api/versionpb/version.proto b/api/versionpb/version.proto
+new file mode 100644
+index 0000000..c81b2f5
+--- /dev/null
++++ b/api/versionpb/version.proto
+@@ -0,0 +1,30 @@
++syntax = "proto3";
++package versionpb;
++
++import "gogoproto/gogo.proto";
++import "google/protobuf/descriptor.proto";
++
++option go_package = "go.etcd.io/etcd/api/v3/versionpb";
++
++option (gogoproto.marshaler_all) = true;
++option (gogoproto.unmarshaler_all) = true;
++
++// Indicates etcd version that introduced the message, used to determine minimal etcd version required to interpret wal that includes this message.
++extend google.protobuf.MessageOptions {
++  optional string etcd_version_msg = 50000;
++}
++
++// Indicates etcd version that introduced the field, used to determine minimal etcd version required to interpret wal that sets this field.
++extend google.protobuf.FieldOptions {
++  optional string etcd_version_field = 50001;
++}
++
++// Indicates etcd version that introduced the enum, used to determine minimal etcd version required to interpret wal that uses this enum.
++extend google.protobuf.EnumOptions {
++  optional string etcd_version_enum = 50002;
++}
++
++// Indicates etcd version that introduced the enum value, used to determine minimal etcd version required to interpret wal that sets this enum value.
++extend google.protobuf.EnumValueOptions {
++  optional string etcd_version_enum_value = 50003;
++}
+diff --git a/scripts/genproto.sh b/scripts/genproto.sh
+index 8b09b6d..c7dd046 100755
+--- a/scripts/genproto.sh
++++ b/scripts/genproto.sh
+@@ -18,16 +18,38 @@ if [[ $(protoc --version | cut -f2 -d' ') != "3.14.0" ]]; then
+ fi
+ 
+ GOFAST_BIN=$(tool_get_bin github.com/gogo/protobuf/protoc-gen-gofast)
+-GRPC_GATEWAY_BIN=$(tool_get_bin github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway)
+-SWAGGER_BIN=$(tool_get_bin github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger)
++GRPC_GATEWAY_BIN=$(tool_get_bin github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway)
++OPENAPIV2_BIN=$(tool_get_bin github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2)
+ GOGOPROTO_ROOT="$(tool_pkg_dir github.com/gogo/protobuf/proto)/.."
+-GRPC_GATEWAY_ROOT="$(tool_pkg_dir github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway)/.."
++GRPC_GATEWAY_ROOT="$(tool_pkg_dir github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway)/.."
++RAFT_ROOT="$(tool_pkg_dir go.etcd.io/raft/v3/raftpb)/.."
++GOOGLEAPI_ROOT=$(mktemp -d -t 'googleapi.XXXXX')
++
++readonly googleapi_commit=0adf469dcd7822bf5bc058a7b0217f5558a75643
++
++function cleanup_googleapi() {
++  rm -rf "${GOOGLEAPI_ROOT}"
++}
++
++trap cleanup_googleapi EXIT
++
++# TODO(ahrtr): use buf (https://github.com/bufbuild/buf) to manage the protobuf dependencies?
++function download_googleapi() {
++  run pushd "${GOOGLEAPI_ROOT}"
++  run git init
++  run git remote add upstream https://github.com/googleapis/googleapis.git
++  run git fetch upstream "${googleapi_commit}"
++  run git reset --hard FETCH_HEAD
++  run popd
++}
++
++download_googleapi
+ 
+ echo
+ echo "Resolved binary and packages versions:"
+ echo "  - protoc-gen-gofast:       ${GOFAST_BIN}"
+ echo "  - protoc-gen-grpc-gateway: ${GRPC_GATEWAY_BIN}"
+-echo "  - swagger:                 ${SWAGGER_BIN}"
++echo "  - openapiv2:               ${OPENAPIV2_BIN}"
+ echo "  - gogoproto-root:          ${GOGOPROTO_ROOT}"
+ echo "  - grpc-gateway-root:       ${GRPC_GATEWAY_ROOT}"
+ GOGOPROTO_PATH="${GOGOPROTO_ROOT}:${GOGOPROTO_ROOT}/protobuf"
+@@ -39,15 +61,13 @@ log_callout -e "\\nRunning gofast (gogo) proto generation..."
+ 
+ for dir in ${DIRS}; do
+   run pushd "${dir}"
+-    run protoc --gofast_out=plugins=grpc:. -I=".:${GOGOPROTO_PATH}:${ETCD_ROOT_DIR}/..:${ETCD_ROOT_DIR}:${GRPC_GATEWAY_ROOT}/third_party/googleapis" \
+-      --plugin="${GOFAST_BIN}" ./*.proto
+-
+-    run sed -i.bak -E 's|"etcd/api/|"go.etcd.io/etcd/api/v3/|g' ./*.pb.go
+-    run sed -i.bak -E 's|"raft/raftpb"|"go.etcd.io/etcd/raft/v3/raftpb"|g' ./*.pb.go
++    run protoc --gofast_out=plugins=grpc:. -I=".:${GOGOPROTO_PATH}:${ETCD_ROOT_DIR}/..:${RAFT_ROOT}:${ETCD_ROOT_DIR}:${GOOGLEAPI_ROOT}" \
++      --gofast_opt=paths=source_relative,Mraftpb/raft.proto=go.etcd.io/raft/v3/raftpb,Mgoogle/protobuf/descriptor.proto=github.com/gogo/protobuf/protoc-gen-gogo/descriptor \
++      -I"${GRPC_GATEWAY_ROOT}" \
++      --plugin="${GOFAST_BIN}" ./**/*.proto
+ 
+-    rm -f ./*.bak
+-    run gofmt -s -w ./*.pb.go
+-    run goimports -w ./*.pb.go
++    run gofmt -s -w ./**/*.pb.go
++    run_go_tool "golang.org/x/tools/cmd/goimports" -w ./**/*.pb.go
+   run popd
+ done
+ 
+@@ -58,12 +78,16 @@ rm -rf Documentation/dev-guide/apispec/swagger/*json
+ for pb in api/etcdserverpb/rpc server/etcdserver/api/v3lock/v3lockpb/v3lock server/etcdserver/api/v3election/v3electionpb/v3election; do
+   log_callout "grpc & swagger for: ${pb}.proto"
+   run protoc -I. \
+-      -I"${GRPC_GATEWAY_ROOT}"/third_party/googleapis \
++      -I"${GOOGLEAPI_ROOT}" \
++      -I"${GRPC_GATEWAY_ROOT}" \
+       -I"${GOGOPROTO_PATH}" \
+       -I"${ETCD_ROOT_DIR}/.." \
+       --grpc-gateway_out=logtostderr=true,paths=source_relative:. \
+-      --swagger_out=logtostderr=true:./Documentation/dev-guide/apispec/swagger/. \
+-      --plugin="${SWAGGER_BIN}" --plugin="${GRPC_GATEWAY_BIN}" \
++      --grpc-gateway_opt=Mgoogle/protobuf/descriptor.proto=github.com/gogo/protobuf/protoc-gen-gogo/descriptor,Mgoogle/protobuf/struct.proto=github.com/gogo/protobuf/types \
++      --openapiv2_out=json_names_for_fields=false,logtostderr=true:./Documentation/dev-guide/apispec/swagger/. \
++      --openapiv2_opt=Mgoogle/protobuf/descriptor.proto=github.com/gogo/protobuf/protoc-gen-gogo/descriptor,Mgoogle/protobuf/struct.proto=github.com/gogo/protobuf/types:. \
++      --plugin="${OPENAPIV2_BIN}" \
++      --plugin="${GRPC_GATEWAY_BIN}" \
+       ${pb}.proto
+   # hack to move gw files around so client won't include them
+   pkgpath=$(dirname "${pb}")
+diff --git a/server/etcdserver/api/snap/snappb/snap.proto b/server/etcdserver/api/snap/snappb/snap.proto
+index cd3d21d..0a74744 100644
+--- a/server/etcdserver/api/snap/snappb/snap.proto
++++ b/server/etcdserver/api/snap/snappb/snap.proto
+@@ -3,6 +3,8 @@ package snappb;
+ 
+ import "gogoproto/gogo.proto";
+ 
++option go_package = "go.etcd.io/etcd/server/v3/etcdserver/api/snap/snappb";
++
+ option (gogoproto.marshaler_all) = true;
+ option (gogoproto.sizer_all) = true;
+ option (gogoproto.unmarshaler_all) = true;
+diff --git a/server/etcdserver/api/v3election/v3electionpb/v3election.proto b/server/etcdserver/api/v3election/v3electionpb/v3election.proto
+index 24ccaf1..0bcaad8 100644
+--- a/server/etcdserver/api/v3election/v3electionpb/v3election.proto
++++ b/server/etcdserver/api/v3election/v3electionpb/v3election.proto
+@@ -8,6 +8,8 @@ import "etcd/api/mvccpb/kv.proto";
+ // for grpc-gateway
+ import "google/api/annotations.proto";
+ 
++option go_package = "go.etcd.io/etcd/server/v3/etcdserver/api/v3election/v3electionpb";
++
+ option (gogoproto.marshaler_all) = true;
+ option (gogoproto.unmarshaler_all) = true;
+ 
+diff --git a/server/etcdserver/api/v3lock/v3lockpb/v3lock.proto b/server/etcdserver/api/v3lock/v3lockpb/v3lock.proto
+index 1b5c456..88a1c82 100644
+--- a/server/etcdserver/api/v3lock/v3lockpb/v3lock.proto
++++ b/server/etcdserver/api/v3lock/v3lockpb/v3lock.proto
+@@ -7,6 +7,8 @@ import "etcd/api/etcdserverpb/rpc.proto";
+ // for grpc-gateway
+ import "google/api/annotations.proto";
+ 
++option go_package = "go.etcd.io/etcd/server/v3/etcdserver/api/v3lock/v3lockpb";
++
+ option (gogoproto.marshaler_all) = true;
+ option (gogoproto.unmarshaler_all) = true;
+ 
+diff --git a/server/lease/leasepb/lease.proto b/server/lease/leasepb/lease.proto
+index 5b40e3b..d631797 100644
+--- a/server/lease/leasepb/lease.proto
++++ b/server/lease/leasepb/lease.proto
+@@ -4,6 +4,8 @@ package leasepb;
+ import "gogoproto/gogo.proto";
+ import "etcd/api/etcdserverpb/rpc.proto";
+ 
++option go_package = "go.etcd.io/etcd/server/v3/lease/leasepb;leasepb";
++
+ option (gogoproto.marshaler_all) = true;
+ option (gogoproto.sizer_all) = true;
+ option (gogoproto.unmarshaler_all) = true;
+diff --git a/server/wal/walpb/record.proto b/server/wal/walpb/record.proto
+index 536fa6c..5f3b50a 100644
+--- a/server/wal/walpb/record.proto
++++ b/server/wal/walpb/record.proto
+@@ -4,6 +4,8 @@ package walpb;
+ import "gogoproto/gogo.proto";
+ import "raft/raftpb/raft.proto";
+ 
++option go_package = "go.etcd.io/etcd/server/v3/storage/wal/walpb";
++
+ option (gogoproto.marshaler_all) = true;
+ option (gogoproto.sizer_all) = true;
+ option (gogoproto.unmarshaler_all) = true;
+diff --git a/tools/mod/go.mod b/tools/mod/go.mod
+index 65a4076..da4e229 100644
+--- a/tools/mod/go.mod
++++ b/tools/mod/go.mod
+@@ -10,7 +10,7 @@ require (
+ 	github.com/coreos/license-bill-of-materials v0.0.0-20190913234955-13baff47494e
+ 	github.com/gogo/protobuf v1.3.2
+ 	github.com/gordonklaus/ineffassign v0.0.0-20200809085317-e36bfde3bb78
+-	github.com/grpc-ecosystem/grpc-gateway v1.16.0
++	github.com/grpc-ecosystem/grpc-gateway/v2 v2.17.1
+ 	github.com/gyuho/gocovmerge v0.0.0-20171205171859-50c7e6afd535
+ 	github.com/hexfusion/schwag v0.0.0-20170606222847-b7d0fc9aadaa
+ 	github.com/mdempsky/unconvert v0.0.0-20200228143138-95ecdbfc0b5f
+diff --git a/tools/mod/tools.go b/tools/mod/tools.go
+index 0331da5..bbfcea3 100644
+--- a/tools/mod/tools.go
++++ b/tools/mod/tools.go
+@@ -26,8 +26,8 @@ import (
+ 	_ "github.com/chzchzchz/goword"
+ 	_ "github.com/coreos/license-bill-of-materials"
+ 	_ "github.com/gordonklaus/ineffassign"
+-	_ "github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway"
+-	_ "github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger"
++	_ "github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway"
++	_ "github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2"
+ 	_ "github.com/gyuho/gocovmerge"
+ 	_ "github.com/hexfusion/schwag"
+ 	_ "github.com/mdempsky/unconvert"

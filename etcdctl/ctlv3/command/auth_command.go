@@ -18,7 +18,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
+	"go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
+	"go.etcd.io/etcd/pkg/v3/cobrautl"
 )
 
 // NewAuthCommand returns the cobra command for "auth".
@@ -30,8 +31,33 @@ func NewAuthCommand() *cobra.Command {
 
 	ac.AddCommand(newAuthEnableCommand())
 	ac.AddCommand(newAuthDisableCommand())
+	ac.AddCommand(newAuthStatusCommand())
 
 	return ac
+}
+
+func newAuthStatusCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "status",
+		Short: "Returns authentication status",
+		Run:   authStatusCommandFunc,
+	}
+}
+
+// authStatusCommandFunc executes the "auth status" command.
+func authStatusCommandFunc(cmd *cobra.Command, args []string) {
+	if len(args) != 0 {
+		cobrautl.ExitWithError(cobrautl.ExitBadArgs, fmt.Errorf("auth status command does not accept any arguments"))
+	}
+
+	ctx, cancel := commandCtx(cmd)
+	result, err := mustClientFromCmd(cmd).Auth.AuthStatus(ctx)
+	cancel()
+	if err != nil {
+		cobrautl.ExitWithError(cobrautl.ExitError, err)
+	}
+
+	display.AuthStatus(*result)
 }
 
 func newAuthEnableCommand() *cobra.Command {
@@ -45,7 +71,7 @@ func newAuthEnableCommand() *cobra.Command {
 // authEnableCommandFunc executes the "auth enable" command.
 func authEnableCommandFunc(cmd *cobra.Command, args []string) {
 	if len(args) != 0 {
-		ExitWithError(ExitBadArgs, fmt.Errorf("auth enable command does not accept any arguments"))
+		cobrautl.ExitWithError(cobrautl.ExitBadArgs, fmt.Errorf("auth enable command does not accept any arguments"))
 	}
 
 	ctx, cancel := commandCtx(cmd)
@@ -66,7 +92,7 @@ func authEnableCommandFunc(cmd *cobra.Command, args []string) {
 	}
 	cancel()
 	if err != nil {
-		ExitWithError(ExitError, err)
+		cobrautl.ExitWithError(cobrautl.ExitError, err)
 	}
 
 	fmt.Println("Authentication Enabled")
@@ -83,14 +109,14 @@ func newAuthDisableCommand() *cobra.Command {
 // authDisableCommandFunc executes the "auth disable" command.
 func authDisableCommandFunc(cmd *cobra.Command, args []string) {
 	if len(args) != 0 {
-		ExitWithError(ExitBadArgs, fmt.Errorf("auth disable command does not accept any arguments"))
+		cobrautl.ExitWithError(cobrautl.ExitBadArgs, fmt.Errorf("auth disable command does not accept any arguments"))
 	}
 
 	ctx, cancel := commandCtx(cmd)
 	_, err := mustClientFromCmd(cmd).Auth.AuthDisable(ctx)
 	cancel()
 	if err != nil {
-		ExitWithError(ExitError, err)
+		cobrautl.ExitWithError(cobrautl.ExitError, err)
 	}
 
 	fmt.Println("Authentication Disabled")

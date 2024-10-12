@@ -1,6 +1,6 @@
 Snapshot:
 empty
-Start dupmping log entries from snapshot.
+Start dumping log entries from snapshot.
 WAL metadata:
 nodeID=0 clusterID=0 term=0 commitIndex=0 vote=0
 WAL entries:
@@ -12,7 +12,7 @@ term	     index	type	data
    2	         4	conf	method=ConfChangeAddLearnerNode id=3
    3	         5	norm	noop
    3	         6	norm	method=QGET path="/path1"
-   3	         7	norm	method=SYNC time="1969-12-31 16:00:00.000000001 -0800 PST"
+   3	         7	norm	method=SYNC time="1970-01-01 00:00:00.000000001 +0000 UTC"
    3	         8	norm	method=DELETE path="/path3"
    3	         9	norm	method=RANDOM path="/path4/superlong/path/path/path/path/path/path/path/path/path/pa"..."path/path/path/path/path/path/path/path/path/path/path/path/path" val="{\"hey\":\"ho\",\"hi\":[\"yo\"]}"
    4	        10	norm	ID:5 range:<key:"1" range_end:"hi" limit:6 revision:1 sort_order:ASCEND max_mod_revision:20000 max_create_revision:20000 > 
@@ -26,7 +26,7 @@ term	     index	type	data
   12	        18	norm	ID:13 auth_enable:<> 
   13	        19	norm	ID:14 auth_disable:<> 
   14	        20	norm	ID:15 authenticate:<name:"myname" password:"password" simple_token:"token" > 
-  15	        21	norm	ID:16 auth_user_add:<name:"name1" password:"pass1" > 
+  15	        21	norm	ID:16 auth_user_add:<name:"name1" password:"pass1" options:<> > 
   16	        22	norm	ID:17 auth_user_delete:<name:"name1" > 
   17	        23	norm	ID:18 auth_user_get:<name:"name1" > 
   18	        24	norm	ID:19 auth_user_change_password:<name:"name1" password:"pass2" > 
@@ -41,4 +41,4 @@ term	     index	type	data
   27	        33	norm	ID:28 auth_role_revoke_permission:<role:"role3" key:"key" range_end:"rangeend" > 
   27	        34	norm	???
 
-Entry types () count is : 34
+Entry types (Normal,ConfigChange) count is : 34

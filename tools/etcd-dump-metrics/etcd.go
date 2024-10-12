@@ -23,8 +23,8 @@ import (
 	"strings"
 	"time"
 
-	"go.etcd.io/etcd/clientv3"
-	"go.etcd.io/etcd/embed"
+	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/server/v3/embed"
 
 	"go.uber.org/zap"
 )
@@ -42,7 +42,6 @@ func setupEmbedCfg(cfg *embed.Config, curls, purls, ics []url.URL) {
 	cfg.Logger = "zap"
 	cfg.LogOutputs = []string{"/dev/null"}
 	// []string{"stderr"} to enable server logging
-	cfg.Debug = false
 
 	var err error
 	cfg.Dir, err = ioutil.TempDir(os.TempDir(), fmt.Sprintf("%016X", time.Now().UnixNano()))
@@ -52,8 +51,8 @@ func setupEmbedCfg(cfg *embed.Config, curls, purls, ics []url.URL) {
 	os.RemoveAll(cfg.Dir)
 
 	cfg.ClusterState = "new"
-	cfg.LCUrls, cfg.ACUrls = curls, curls
-	cfg.LPUrls, cfg.APUrls = purls, purls
+	cfg.ListenClientUrls, cfg.AdvertiseClientUrls = curls, curls
+	cfg.ListenPeerUrls, cfg.AdvertisePeerUrls = purls, purls
 
 	cfg.InitialCluster = ""
 	for i := range ics {

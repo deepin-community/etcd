@@ -5,7 +5,7 @@ The state machine is kept in sync through the use of a replicated log.
 For more details on Raft, see "In Search of an Understandable Consensus Algorithm"
 (https://raft.github.io/raft.pdf) by Diego Ongaro and John Ousterhout.
 
-This Raft library is stable and feature complete. As of 2016, it is **the most widely used** Raft library in production, serving tens of thousands clusters each day. It powers distributed systems such as etcd, Kubernetes, Docker Swarm, Cloud Foundry Diego, CockroachDB, TiDB, Project Calico, Flannel, and more.
+This Raft library is stable and feature complete. As of 2016, it is **the most widely used** Raft library in production, serving tens of thousands clusters each day. It powers distributed systems such as etcd, Kubernetes, Docker Swarm, Cloud Foundry Diego, CockroachDB, TiDB, Project Calico, Flannel, Hyperledger and more.
 
 Most Raft implementations have a monolithic design, including storage handling, messaging serialization, and network transport. This library instead follows a minimalistic design philosophy by only implementing the core raft algorithm. This minimalism buys flexibility, determinism, and performance.
 
@@ -13,7 +13,7 @@ To keep the codebase small as well as provide flexibility, the library only impl
 
 In order to easily test the Raft library, its behavior should be deterministic. To achieve this determinism, the library models Raft as a state machine.  The state machine takes a `Message` as input. A message can either be a local timer update or a network message sent from a remote peer. The state machine's output is a 3-tuple `{[]Messages, []LogEntries, NextState}` consisting of an array of `Messages`, `log entries`, and `Raft state changes`. For state machines with the same state, the same state machine input should always generate the same state machine output.
 
-A simple example application, _raftexample_, is also available to help illustrate how to use this package in practice: https://github.com/etcd-io/etcd/tree/master/contrib/raftexample
+A simple example application, _raftexample_, is also available to help illustrate how to use this package in practice: https://github.com/etcd-io/etcd/tree/main/contrib/raftexample
 
 # Features
 
@@ -59,7 +59,7 @@ The primary object in raft is a Node. Either start a Node from scratch using raf
 To start a three-node cluster
 ```go
   storage := raft.NewMemoryStorage()
-  c := &Config{
+  c := &raft.Config{
     ID:              0x01,
     ElectionTick:    10,
     HeartbeatTick:   1,
@@ -95,7 +95,7 @@ To restart a node from previous state:
   storage.SetHardState(state)
   storage.Append(entries)
 
-  c := &Config{
+  c := &raft.Config{
     ID:              0x01,
     ElectionTick:    10,
     HeartbeatTick:   1,
@@ -195,3 +195,7 @@ This implementation is up to date with the final Raft thesis (https://github.com
 To ensure there is no attempt to commit two membership changes at once by matching log positions (which would be unsafe since they should have different quorum requirements), any proposed membership change is simply disallowed while any uncommitted change appears in the leader's log.
 
 This approach introduces a problem when removing a member from a two-member cluster: If one of the members dies before the other one receives the commit of the confchange entry, then the member cannot be removed any more since the cluster cannot make progress. For this reason it is highly recommended to use three or more nodes in every cluster.
+
+## Go docs
+
+More detailed development documentation can be found in go docs: https://pkg.go.dev/go.etcd.io/etcd/raft/v3.

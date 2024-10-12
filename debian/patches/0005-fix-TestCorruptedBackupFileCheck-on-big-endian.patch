@@ -1,0 +1,21 @@
+From: Shengjing Zhu <zhsj@debian.org>
+Date: Wed, 4 Jan 2023 19:07:15 +0800
+Subject: fix TestCorruptedBackupFileCheck on big-endian
+
+---
+ tests/integration/snapshot/v3_snapshot_test.go | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tests/integration/snapshot/v3_snapshot_test.go b/tests/integration/snapshot/v3_snapshot_test.go
+index 4de0f25..cd61cf8 100644
+--- a/tests/integration/snapshot/v3_snapshot_test.go
++++ b/tests/integration/snapshot/v3_snapshot_test.go
+@@ -156,7 +156,7 @@ func TestCorruptedBackupFileCheck(t *testing.T) {
+ 	if err == nil {
+ 		t.Error("expected error due to corrupted snapshot file, got no error")
+ 	}
+-	if !strings.Contains(err.Error(), expectedErrKeywords) {
++	if !strings.Contains(err.Error(), expectedErrKeywords) && !strings.Contains(err.Error(), "invalid database") {
+ 		t.Errorf("expected error message to contain the following keywords:\n%s\n"+
+ 			"actual error message:\n%s",
+ 			expectedErrKeywords, err.Error())

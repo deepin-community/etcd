@@ -20,25 +20,27 @@ package e2e
 import (
 	"os"
 	"testing"
+
+	"go.etcd.io/etcd/tests/v3/framework/e2e"
 )
 
 func TestCtlV3Watch(t *testing.T)          { testCtl(t, watchTest) }
-func TestCtlV3WatchNoTLS(t *testing.T)     { testCtl(t, watchTest, withCfg(configNoTLS)) }
-func TestCtlV3WatchClientTLS(t *testing.T) { testCtl(t, watchTest, withCfg(configClientTLS)) }
-func TestCtlV3WatchPeerTLS(t *testing.T)   { testCtl(t, watchTest, withCfg(configPeerTLS)) }
+func TestCtlV3WatchNoTLS(t *testing.T)     { testCtl(t, watchTest, withCfg(*e2e.NewConfigNoTLS())) }
+func TestCtlV3WatchClientTLS(t *testing.T) { testCtl(t, watchTest, withCfg(*e2e.NewConfigClientTLS())) }
+func TestCtlV3WatchPeerTLS(t *testing.T)   { testCtl(t, watchTest, withCfg(*e2e.NewConfigPeerTLS())) }
 func TestCtlV3WatchTimeout(t *testing.T)   { testCtl(t, watchTest, withDialTimeout(0)) }
 
 func TestCtlV3WatchInteractive(t *testing.T) {
 	testCtl(t, watchTest, withInteractive())
 }
 func TestCtlV3WatchInteractiveNoTLS(t *testing.T) {
-	testCtl(t, watchTest, withInteractive(), withCfg(configNoTLS))
+	testCtl(t, watchTest, withInteractive(), withCfg(*e2e.NewConfigNoTLS()))
 }
 func TestCtlV3WatchInteractiveClientTLS(t *testing.T) {
-	testCtl(t, watchTest, withInteractive(), withCfg(configClientTLS))
+	testCtl(t, watchTest, withInteractive(), withCfg(*e2e.NewConfigClientTLS()))
 }
 func TestCtlV3WatchInteractivePeerTLS(t *testing.T) {
-	testCtl(t, watchTest, withInteractive(), withCfg(configPeerTLS))
+	testCtl(t, watchTest, withInteractive(), withCfg(*e2e.NewConfigPeerTLS()))
 }
 
 func watchTest(cx ctlCtx) {

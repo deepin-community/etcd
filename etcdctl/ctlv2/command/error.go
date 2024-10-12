@@ -20,16 +20,7 @@ import (
 	"os"
 
 	"github.com/urfave/cli"
-	"go.etcd.io/etcd/client"
-)
-
-const (
-	ExitSuccess = iota
-	ExitBadArgs
-	ExitBadConnection
-	ExitBadAuth
-	ExitServerError
-	ExitClusterNotHealthy
+	"go.etcd.io/etcd/client/v2"
 )
 
 func handleError(c *cli.Context, code int, err error) {

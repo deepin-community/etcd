@@ -17,12 +17,13 @@ package command
 import (
 	"context"
 	"fmt"
-	"path/filepath"
-	"strings"
-
-	"go.etcd.io/etcd/clientv3/snapshot"
+	"os"
 
 	"github.com/spf13/cobra"
+	"go.etcd.io/etcd/client/pkg/v3/logutil"
+	snapshot "go.etcd.io/etcd/client/v3/snapshot"
+	"go.etcd.io/etcd/etcdutl/v3/etcdutl"
+	"go.etcd.io/etcd/pkg/v3/cobrautl"
 	"go.uber.org/zap"
 )
 
@@ -39,6 +40,9 @@ var (
 	restorePeerURLs     string
 	restoreName         string
 	skipHashCheck       bool
+	markCompacted       bool
+	revisionBump        uint64
+	initialMmapSize     uint64
 )
 
 // NewSnapshotCommand returns the cobra command for "snapshot".
@@ -64,9 +68,11 @@ func NewSnapshotSaveCommand() *cobra.Command {
 func newSnapshotStatusCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status <filename>",
-		Short: "Gets backend snapshot status of a given file",
+		Short: "[deprecated] Gets backend snapshot status of a given file",
 		Long: `When --write-out is set to simple, this command prints out comma-separated status lists for each endpoint.
 The items in the lists are hash, revision, total keys, total size.
+
+Moved to 'etcdctl snapshot status ...'
 `,
 		Run: snapshotStatusCommandFunc,
 	}
@@ -77,6 +83,7 @@ func NewSnapshotRestoreCommand() *cobra.Command {
 		Use:   "restore <filename> [options]",
 		Short: "Restores an etcd member snapshot to an etcd directory",
 		Run:   snapshotRestoreCommandFunc,
+		Long:  "Moved to `etcdctl snapshot restore ...`\n",
 	}
 	cmd.Flags().StringVar(&restoreDataDir, "data-dir", "", "Path to the data directory")
 	cmd.Flags().StringVar(&restoreWalDir, "wal-dir", "", "Path to the WAL directory (use --data-dir if none given)")
@@ -85,6 +92,9 @@ func NewSnapshotRestoreCommand() *cobra.Command {
 	cmd.Flags().StringVar(&restorePeerURLs, "initial-advertise-peer-urls", defaultInitialAdvertisePeerURLs, "List of this member's peer URLs to advertise to the rest of the cluster")
 	cmd.Flags().StringVar(&restoreName, "name", defaultName, "Human-readable name for this member")
 	cmd.Flags().BoolVar(&skipHashCheck, "skip-hash-check", false, "Ignore snapshot integrity hash value (required if copied from data directory)")
+	cmd.Flags().Uint64Var(&revisionBump, "bump-revision", 0, "How much to increase the latest revision after restore")
+	cmd.Flags().BoolVar(&markCompacted, "mark-compacted", false, "Mark the latest revision after restore as the point of scheduled compaction (required if --bump-revision > 0, disallowed otherwise)")
+	cmd.Flags().Uint64Var(&initialMmapSize, "initial-memory-map-size", initialMmapSize, "Initial memory map size of the database in bytes. It uses the default value if not defined or defined to 0")
 
 	return cmd
 }
@@ -92,14 +102,13 @@ func NewSnapshotRestoreCommand() *cobra.Command {
 func snapshotSaveCommandFunc(cmd *cobra.Command, args []string) {
 	if len(args) != 1 {
 		err := fmt.Errorf("snapshot save expects one argument")
-		ExitWithError(ExitBadArgs, err)
+		cobrautl.ExitWithError(cobrautl.ExitBadArgs, err)
 	}
 
-	lg, err := zap.NewProduction()
+	lg, err := logutil.CreateDefaultZapLogger(zap.InfoLevel)
 	if err != nil {
-		ExitWithError(ExitError, err)
+		cobrautl.ExitWithError(cobrautl.ExitError, err)
 	}
-	sp := snapshot.NewV3(lg)
 	cfg := mustClientCfgFromCmd(cmd)
 
 	// if user does not specify "--command-timeout" flag, there will be no timeout for snapshot save command
@@ -110,65 +119,21 @@ func snapshotSaveCommandFunc(cmd *cobra.Command, args []string) {
 	defer cancel()
 
 	path := args[0]
-	if err := sp.Save(ctx, *cfg, path); err != nil {
-		ExitWithError(ExitInterrupted, err)
+	if err := snapshot.Save(ctx, lg, *cfg, path); err != nil {
+		cobrautl.ExitWithError(cobrautl.ExitInterrupted, err)
 	}
 	fmt.Printf("Snapshot saved at %s\n", path)
 }
 
 func snapshotStatusCommandFunc(cmd *cobra.Command, args []string) {
-	if len(args) != 1 {
-		err := fmt.Errorf("snapshot status requires exactly one argument")
-		ExitWithError(ExitBadArgs, err)
-	}
-	initDisplayFromCmd(cmd)
-
-	lg, err := zap.NewProduction()
-	if err != nil {
-		ExitWithError(ExitError, err)
-	}
-	sp := snapshot.NewV3(lg)
-	ds, err := sp.Status(args[0])
-	if err != nil {
-		ExitWithError(ExitError, err)
-	}
-	display.DBStatus(ds)
+	fmt.Fprintf(os.Stderr, "Deprecated: Use `etcdutl snapshot status` instead.\n\n")
+	etcdutl.SnapshotStatusCommandFunc(cmd, args)
 }
 
 func snapshotRestoreCommandFunc(cmd *cobra.Command, args []string) {
-	if len(args) != 1 {
-		err := fmt.Errorf("snapshot restore requires exactly one argument")
-		ExitWithError(ExitBadArgs, err)
-	}
-
-	dataDir := restoreDataDir
-	if dataDir == "" {
-		dataDir = restoreName + ".etcd"
-	}
-
-	walDir := restoreWalDir
-	if walDir == "" {
-		walDir = filepath.Join(dataDir, "member", "wal")
-	}
-
-	lg, err := zap.NewProduction()
-	if err != nil {
-		ExitWithError(ExitError, err)
-	}
-	sp := snapshot.NewV3(lg)
-
-	if err := sp.Restore(snapshot.RestoreConfig{
-		SnapshotPath:        args[0],
-		Name:                restoreName,
-		OutputDataDir:       dataDir,
-		OutputWALDir:        walDir,
-		PeerURLs:            strings.Split(restorePeerURLs, ","),
-		InitialCluster:      restoreCluster,
-		InitialClusterToken: restoreClusterToken,
-		SkipHashCheck:       skipHashCheck,
-	}); err != nil {
-		ExitWithError(ExitError, err)
-	}
+	fmt.Fprintf(os.Stderr, "Deprecated: Use `etcdutl snapshot restore` instead.\n\n")
+	etcdutl.SnapshotRestoreCommandFunc(restoreCluster, restoreClusterToken, restoreDataDir, restoreWalDir,
+		restorePeerURLs, restoreName, skipHashCheck, initialMmapSize, revisionBump, markCompacted, args)
 }
 
 func initialClusterFromName(name string) string {

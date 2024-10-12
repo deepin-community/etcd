@@ -17,13 +17,17 @@ package e2e
 import (
 	"fmt"
 	"testing"
+
+	"go.etcd.io/etcd/tests/v3/framework/e2e"
 )
 
-func TestCtlV3RoleAdd(t *testing.T)          { testCtl(t, roleAddTest) }
-func TestCtlV3RoleAddNoTLS(t *testing.T)     { testCtl(t, roleAddTest, withCfg(configNoTLS)) }
-func TestCtlV3RoleAddClientTLS(t *testing.T) { testCtl(t, roleAddTest, withCfg(configClientTLS)) }
-func TestCtlV3RoleAddPeerTLS(t *testing.T)   { testCtl(t, roleAddTest, withCfg(configPeerTLS)) }
-func TestCtlV3RoleAddTimeout(t *testing.T)   { testCtl(t, roleAddTest, withDialTimeout(0)) }
+func TestCtlV3RoleAdd(t *testing.T)      { testCtl(t, roleAddTest) }
+func TestCtlV3RoleAddNoTLS(t *testing.T) { testCtl(t, roleAddTest, withCfg(*e2e.NewConfigNoTLS())) }
+func TestCtlV3RoleAddClientTLS(t *testing.T) {
+	testCtl(t, roleAddTest, withCfg(*e2e.NewConfigClientTLS()))
+}
+func TestCtlV3RoleAddPeerTLS(t *testing.T) { testCtl(t, roleAddTest, withCfg(*e2e.NewConfigPeerTLS())) }
+func TestCtlV3RoleAddTimeout(t *testing.T) { testCtl(t, roleAddTest, withDialTimeout(0)) }
 
 func TestCtlV3RoleGrant(t *testing.T) { testCtl(t, roleGrantTest) }
 
@@ -96,7 +100,7 @@ func ctlV3Role(cx ctlCtx, args []string, expStr string) error {
 	cmdArgs := append(cx.PrefixArgs(), "role")
 	cmdArgs = append(cmdArgs, args...)
 
-	return spawnWithExpect(cmdArgs, expStr)
+	return e2e.SpawnWithExpectWithEnv(cmdArgs, cx.envMap, expStr)
 }
 
 func ctlV3RoleGrantPermission(cx ctlCtx, rolename string, perm grantingPerm) error {
@@ -110,10 +114,11 @@ func ctlV3RoleGrantPermission(cx ctlCtx, rolename string, perm grantingPerm) err
 	cmdArgs = append(cmdArgs, rolename)
 	cmdArgs = append(cmdArgs, grantingPermToArgs(perm)...)
 
-	proc, err := spawnCmd(cmdArgs)
+	proc, err := e2e.SpawnCmd(cmdArgs, cx.envMap)
 	if err != nil {
 		return err
 	}
+	defer proc.Close()
 
 	expStr := fmt.Sprintf("Role %s updated", rolename)
 	_, err = proc.Expect(expStr)
@@ -135,11 +140,11 @@ func ctlV3RoleRevokePermission(cx ctlCtx, rolename string, key, rangeEnd string,
 		expStr = fmt.Sprintf("Permission of key %s is revoked from role %s", key, rolename)
 	}
 
-	proc, err := spawnCmd(cmdArgs)
+	proc, err := e2e.SpawnCmd(cmdArgs, cx.envMap)
 	if err != nil {
 		return err
 	}
-
+	defer proc.Close()
 	_, err = proc.Expect(expStr)
 	return err
 }
