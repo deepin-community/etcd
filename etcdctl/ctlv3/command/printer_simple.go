@@ -19,10 +19,9 @@ import (
 	"os"
 	"strings"
 
-	v3 "go.etcd.io/etcd/clientv3"
-	"go.etcd.io/etcd/clientv3/snapshot"
-	pb "go.etcd.io/etcd/etcdserver/etcdserverpb"
-	"go.etcd.io/etcd/pkg/types"
+	pb "go.etcd.io/etcd/api/v3/etcdserverpb"
+	"go.etcd.io/etcd/client/pkg/v3/types"
+	v3 "go.etcd.io/etcd/client/v3"
 )
 
 type simplePrinter struct {
@@ -150,7 +149,7 @@ func (s *simplePrinter) MemberList(resp v3.MemberListResponse) {
 func (s *simplePrinter) EndpointHealth(hs []epHealth) {
 	for _, h := range hs {
 		if h.Error == "" {
-			fmt.Fprintf(os.Stderr, "%s is healthy: successfully committed proposal: took = %v\n", h.Ep, h.Took)
+			fmt.Printf("%s is healthy: successfully committed proposal: took = %v\n", h.Ep, h.Took)
 		} else {
 			fmt.Fprintf(os.Stderr, "%s is unhealthy: failed to commit proposal: %v\n", h.Ep, h.Error)
 		}
@@ -166,13 +165,6 @@ func (s *simplePrinter) EndpointStatus(statusList []epStatus) {
 
 func (s *simplePrinter) EndpointHashKV(hashList []epHashKV) {
 	_, rows := makeEndpointHashKVTable(hashList)
-	for _, row := range rows {
-		fmt.Println(strings.Join(row, ", "))
-	}
-}
-
-func (s *simplePrinter) DBStatus(ds snapshot.Status) {
-	_, rows := makeDBStatusTable(ds)
 	for _, row := range rows {
 		fmt.Println(strings.Join(row, ", "))
 	}
@@ -284,4 +276,9 @@ func (s *simplePrinter) UserList(r v3.AuthUserListResponse) {
 	for _, user := range r.Users {
 		fmt.Printf("%s\n", user)
 	}
+}
+
+func (s *simplePrinter) AuthStatus(r v3.AuthStatusResponse) {
+	fmt.Println("Authentication Status:", r.Enabled)
+	fmt.Println("AuthRevision:", r.AuthRevision)
 }

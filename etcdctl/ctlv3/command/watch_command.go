@@ -23,7 +23,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/pkg/v3/cobrautl"
 
 	"github.com/spf13/cobra"
 )
@@ -40,6 +41,7 @@ var (
 	watchPrefix      bool
 	watchInteractive bool
 	watchPrevKey     bool
+	progressNotify   bool
 )
 
 // NewWatchCommand returns the cobra command for "watch".
@@ -54,6 +56,7 @@ func NewWatchCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&watchPrefix, "prefix", false, "Watch on a prefix if prefix is set")
 	cmd.Flags().Int64Var(&watchRev, "rev", 0, "Revision to start watching")
 	cmd.Flags().BoolVar(&watchPrevKey, "prev-kv", false, "get the previous key-value pair before the event happens")
+	cmd.Flags().BoolVar(&progressNotify, "progress-notify", false, "get periodic watch progress notification from server")
 
 	return cmd
 }
@@ -62,7 +65,7 @@ func NewWatchCommand() *cobra.Command {
 func watchCommandFunc(cmd *cobra.Command, args []string) {
 	envKey, envRange := os.Getenv("ETCDCTL_WATCH_KEY"), os.Getenv("ETCDCTL_WATCH_RANGE_END")
 	if envKey == "" && envRange != "" {
-		ExitWithError(ExitBadArgs, fmt.Errorf("ETCDCTL_WATCH_KEY is empty but got ETCDCTL_WATCH_RANGE_END=%q", envRange))
+		cobrautl.ExitWithError(cobrautl.ExitBadArgs, fmt.Errorf("ETCDCTL_WATCH_KEY is empty but got ETCDCTL_WATCH_RANGE_END=%q", envRange))
 	}
 
 	if watchInteractive {
@@ -72,20 +75,20 @@ func watchCommandFunc(cmd *cobra.Command, args []string) {
 
 	watchArgs, execArgs, err := parseWatchArgs(os.Args, args, envKey, envRange, false)
 	if err != nil {
-		ExitWithError(ExitBadArgs, err)
+		cobrautl.ExitWithError(cobrautl.ExitBadArgs, err)
 	}
 
 	c := mustClientFromCmd(cmd)
 	wc, err := getWatchChan(c, watchArgs)
 	if err != nil {
-		ExitWithError(ExitBadArgs, err)
+		cobrautl.ExitWithError(cobrautl.ExitBadArgs, err)
 	}
 
 	printWatchCh(c, wc, execArgs)
 	if err = c.Close(); err != nil {
-		ExitWithError(ExitBadConnection, err)
+		cobrautl.ExitWithError(cobrautl.ExitBadConnection, err)
 	}
-	ExitWithError(ExitInterrupted, fmt.Errorf("watch is canceled by the server"))
+	cobrautl.ExitWithError(cobrautl.ExitInterrupted, fmt.Errorf("watch is canceled by the server"))
 }
 
 func watchInteractiveFunc(cmd *cobra.Command, osArgs []string, envKey, envRange string) {
@@ -96,7 +99,7 @@ func watchInteractiveFunc(cmd *cobra.Command, osArgs []string, envKey, envRange 
 	for {
 		l, err := reader.ReadString('\n')
 		if err != nil {
-			ExitWithError(ExitInvalidInput, fmt.Errorf("Error reading watch request line: %v", err))
+			cobrautl.ExitWithError(cobrautl.ExitInvalidInput, fmt.Errorf("error reading watch request line: %v", err))
 		}
 		l = strings.TrimSuffix(l, "\n")
 
@@ -113,7 +116,7 @@ func watchInteractiveFunc(cmd *cobra.Command, osArgs []string, envKey, envRange 
 			}
 			watchArgs, execArgs, perr := parseWatchArgs(osArgs, args, envKey, envRange, true)
 			if perr != nil {
-				ExitWithError(ExitBadArgs, perr)
+				cobrautl.ExitWithError(cobrautl.ExitBadArgs, perr)
 			}
 
 			ch, err := getWatchChan(c, watchArgs)
@@ -125,7 +128,7 @@ func watchInteractiveFunc(cmd *cobra.Command, osArgs []string, envKey, envRange 
 		case "progress":
 			err := c.RequestProgress(clientv3.WithRequireLeader(context.Background()))
 			if err != nil {
-				ExitWithError(ExitError, err)
+				cobrautl.ExitWithError(cobrautl.ExitError, err)
 			}
 		default:
 			fmt.Fprintf(os.Stderr, "Invalid command %s (only support watch)\n", l)
@@ -153,6 +156,9 @@ func getWatchChan(c *clientv3.Client, args []string) (clientv3.WatchChan, error)
 	}
 	if watchPrevKey {
 		opts = append(opts, clientv3.WithPrevKV())
+	}
+	if progressNotify {
+		opts = append(opts, clientv3.WithProgressNotify())
 	}
 	return c.Watch(clientv3.WithRequireLeader(context.Background()), key, opts...), nil
 }

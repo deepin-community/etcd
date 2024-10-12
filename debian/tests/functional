@@ -4,15 +4,21 @@ set -ex
 
 export DEB_BUILD_OPTIONS=nocheck
 
-./debian/rules build
+DH_GOLANG_INSTALL_EXTRA="$(find ./* -name go.mod)" \
+	dh_auto_configure -O--buildsystem=golang -O--builddirectory=_build
+DH_GOLANG_BUILDPKG="go.etcd.io/etcd/tests/functional/cmd/..." \
+	dh_auto_build -O--buildsystem=golang -O--builddirectory=_build
 
 ln -sf _build/bin bin
+ln -sf /usr/bin/etcd bin/
+ln -sf /usr/bin/etcdctl bin/
 
-# copy from ../../test functional_pass
+# copy from ../../test.sh functional_pass
 
 function functional_pass {
   	# Clean up any data and logs from previous runs
   	rm -rf /tmp/etcd-functional-* /tmp/etcd-functional-*.backup
+  	ss -nlpt
 
 	for a in 1 2 3; do
 		./bin/etcd-agent --network tcp --address 127.0.0.1:${a}9027 &
@@ -28,7 +34,12 @@ function functional_pass {
 	done
 
 	echo "functional test START!"
-	./bin/etcd-tester --config ./functional.yaml && echo "'etcd-tester' succeeded"
+    ss -nlpt
+    mkdir -p /tmp/etcd-tester-data
+    # patch out potential port conflicts
+    sed 's,127.0.0.1:2380,127.0.0.1:5380,g; s,127.0.0.1:2379,127.0.0.1:5378,g; ' \
+        ./tests/functional/functional.yaml > /tmp/etcd-tester-data/functional.yaml
+	./bin/etcd-tester --config /tmp/etcd-tester-data/functional.yaml && echo "'etcd-tester' succeeded"
 	ETCD_TESTER_EXIT_CODE=$?
 	echo "ETCD_TESTER_EXIT_CODE:" ${ETCD_TESTER_EXIT_CODE}
 
@@ -37,6 +48,9 @@ function functional_pass {
 	kill -s TERM "${agent_pids[@]}" || true
 
 	if [[ "${ETCD_TESTER_EXIT_CODE}" -ne "0" ]]; then
+		printf "\n"
+        find /tmp/etcd-* -ls
+
 		printf "\n"
 		echo "FAILED! 'tail -1000 /tmp/etcd-functional-1/etcd.log'"
 		tail -1000 /tmp/etcd-functional-1/etcd.log

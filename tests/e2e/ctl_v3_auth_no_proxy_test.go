@@ -1,4 +1,4 @@
-// Copyright 2022 The etcd Authors
+// Copyright 2016 The etcd Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// These tests depends on certificate-based authentication that is NOT supported
+// These tests depend on certificate-based authentication that is NOT supported
 // by gRPC proxy.
 //go:build !cluster_proxy
 // +build !cluster_proxy
@@ -25,21 +25,21 @@ import (
 	"testing"
 	"time"
 
-	"go.etcd.io/etcd/pkg/testutil"
+	"go.etcd.io/etcd/tests/v3/framework/e2e"
 )
 
 func TestCtlV3AuthCertCN(t *testing.T) {
-	testCtl(t, authTestCertCN, withCfg(configClientTLSCertAuth))
+	testCtl(t, authTestCertCN, withCfg(*e2e.NewConfigClientTLSCertAuth()))
 }
 func TestCtlV3AuthCertCNAndUsername(t *testing.T) {
-	testCtl(t, authTestCertCNAndUsername, withCfg(configClientTLSCertAuth))
+	testCtl(t, authTestCertCNAndUsername, withCfg(*e2e.NewConfigClientTLSCertAuth()))
 }
 func TestCtlV3AuthCertCNAndUsernameNoPassword(t *testing.T) {
-	testCtl(t, authTestCertCNAndUsernameNoPassword, withCfg(configClientTLSCertAuth))
+	testCtl(t, authTestCertCNAndUsernameNoPassword, withCfg(*e2e.NewConfigClientTLSCertAuth()))
 }
 
 func TestCtlV3AuthCertCNWithWithConcurrentOperation(t *testing.T) {
-	defer testutil.AfterTest(t)
+	e2e.BeforeTest(t)
 
 	// apply the certificate which has `root` CommonName,
 	// and reset the setting when the test case finishes.
@@ -51,18 +51,19 @@ func TestCtlV3AuthCertCNWithWithConcurrentOperation(t *testing.T) {
 
 	t.Log("Create an etcd cluster")
 	cx := getDefaultCtlCtx(t)
-	cx.cfg = etcdProcessClusterConfig{
-		clusterSize:           1,
-		clientTLS:             clientTLS,
-		clientCertAuthEnabled: true,
-		initialToken:          "new",
+	cx.cfg = e2e.EtcdProcessClusterConfig{
+		ClusterSize:           1,
+		ClientTLS:             e2e.ClientTLS,
+		ClientCertAuthEnabled: true,
+		InitialToken:          "new",
 	}
 
-	epc, err := newEtcdProcessCluster(&cx.cfg)
+	epc, err := e2e.NewEtcdProcessCluster(t, &cx.cfg)
 	if err != nil {
 		t.Fatalf("Failed to start etcd cluster: %v", err)
 	}
 	cx.epc = epc
+	cx.dataDir = epc.Procs[0].Config().DataDirPath
 
 	defer func() {
 		if err := epc.Close(); err != nil {

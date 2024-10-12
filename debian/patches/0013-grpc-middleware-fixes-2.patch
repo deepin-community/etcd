@@ -1,0 +1,52 @@
+From: Mathias Gibbens <gibmat@debian.org>
+Date: Thu, 1 Aug 2024 14:04:04 +0800
+Subject: In the interest of unblocking the grpc transition,
+ for now rip out some use of old grpc-middleware from a test
+
+Forwarded: not-needed
+---
+ tests/integration/testing.go | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/tests/integration/testing.go b/tests/integration/testing.go
+index e673751..38cf4b8 100644
+--- a/tests/integration/testing.go
++++ b/tests/integration/testing.go
+@@ -19,21 +19,17 @@ import (
+ 	"path/filepath"
+ 	"testing"
+ 
+-	grpc_logsettable "github.com/grpc-ecosystem/go-grpc-middleware/logging/settable"
+ 	"go.etcd.io/etcd/client/pkg/v3/testutil"
+ 	clientv3 "go.etcd.io/etcd/client/v3"
+ 	"go.etcd.io/etcd/server/v3/embed"
+ 	"go.etcd.io/etcd/server/v3/verify"
+ 	"go.uber.org/zap/zapcore"
+-	"go.uber.org/zap/zapgrpc"
+ 	"go.uber.org/zap/zaptest"
+ )
+ 
+-var grpc_logger grpc_logsettable.SettableLoggerV2
+ var insideTestContext bool
+ 
+ func init() {
+-	grpc_logger = grpc_logsettable.ReplaceGrpcLoggerV2()
+ }
+ 
+ type testOptions struct {
+@@ -88,7 +84,6 @@ func BeforeTest(t testutil.TB, opts ...TestOption) {
+ 
+ 	// Registering cleanup early, such it will get executed even if the helper fails.
+ 	t.Cleanup(func() {
+-		grpc_logger.Reset()
+ 		insideTestContext = previousInsideTestContext
+ 		os.Chdir(previousWD)
+ 	})
+@@ -97,7 +92,6 @@ func BeforeTest(t testutil.TB, opts ...TestOption) {
+ 		t.Fatal("already in test context. BeforeTest was likely already called")
+ 	}
+ 
+-	grpc_logger.Set(zapgrpc.NewLogger(zaptest.NewLogger(t).Named("grpc")))
+ 	insideTestContext = true
+ 
+ 	// Integration tests should verify written state as much as possible.

@@ -23,7 +23,7 @@ import (
 	"sort"
 	"time"
 
-	"go.etcd.io/etcd/pkg/types"
+	"go.etcd.io/etcd/client/pkg/v3/types"
 
 	"go.uber.org/zap"
 )
@@ -103,7 +103,7 @@ func resolveURL(ctx context.Context, lg *zap.Logger, u url.URL) (string, error) 
 		)
 		return "", err
 	}
-	if host == "localhost" || net.ParseIP(host) != nil {
+	if host == "localhost" {
 		return "", nil
 	}
 	for ctx.Err() == nil {
@@ -192,12 +192,6 @@ func URLStringsEqual(ctx context.Context, lg *zap.Logger, a []string, b []string
 	urlsB, err := stringsToURLs(b)
 	if err != nil {
 		return false, err
-	}
-	if lg == nil {
-		lg, _ = zap.NewProduction()
-		if lg == nil {
-			lg = zap.NewExample()
-		}
 	}
 	return urlsEqual(ctx, lg, urlsA, urlsB)
 }

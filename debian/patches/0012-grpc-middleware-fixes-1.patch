@@ -1,0 +1,33 @@
+From: Mathias Gibbens <gibmat@debian.org>
+Date: Thu, 1 Aug 2024 14:04:04 +0800
+Subject: Cherry-pick some upstream changes to fix API breakage in updated
+ grpc-middleware
+
+Forwarded: https://github.com/etcd-io/etcd/pull/17922
+---
+ server/etcdserver/api/v3rpc/grpc.go | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/server/etcdserver/api/v3rpc/grpc.go b/server/etcdserver/api/v3rpc/grpc.go
+index 6947903..ef15bfc 100644
+--- a/server/etcdserver/api/v3rpc/grpc.go
++++ b/server/etcdserver/api/v3rpc/grpc.go
+@@ -22,7 +22,6 @@ import (
+ 	"go.etcd.io/etcd/client/v3/credentials"
+ 	"go.etcd.io/etcd/server/v3/etcdserver"
+ 
+-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+ 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+ 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+ 	"google.golang.org/grpc"
+@@ -62,8 +61,8 @@ func Server(s *etcdserver.EtcdServer, tls *tls.Config, interceptor grpc.UnarySer
+ 
+ 	}
+ 
+-	opts = append(opts, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(chainUnaryInterceptors...)))
+-	opts = append(opts, grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(chainStreamInterceptors...)))
++	opts = append(opts, grpc.ChainUnaryInterceptor(chainUnaryInterceptors...))
++	opts = append(opts, grpc.ChainStreamInterceptor(chainStreamInterceptors...))
+ 
+ 	opts = append(opts, grpc.MaxRecvMsgSize(int(s.Cfg.MaxRequestBytes+grpcOverheadBytes)))
+ 	opts = append(opts, grpc.MaxSendMsgSize(maxSendBytes))

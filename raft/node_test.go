@@ -24,8 +24,8 @@ import (
 	"testing"
 	"time"
 
-	"go.etcd.io/etcd/pkg/testutil"
-	"go.etcd.io/etcd/raft/raftpb"
+	"go.etcd.io/etcd/client/pkg/v3/testutil"
+	"go.etcd.io/etcd/raft/v3/raftpb"
 )
 
 // readyWithTimeout selects from n.Ready() with a 1-second timeout. It
@@ -76,7 +76,7 @@ func TestNodeStep(t *testing.T) {
 	}
 }
 
-// Cancel and Stop should unblock Step()
+// TestNodeStepUnblock should Cancel and Stop should unblock Step()
 func TestNodeStepUnblock(t *testing.T) {
 	// a node without buffer to block step
 	n := &node{
@@ -130,8 +130,8 @@ func TestNodePropose(t *testing.T) {
 		return nil
 	}
 
-	s := NewMemoryStorage()
-	rn := newTestRawNode(1, []uint64{1}, 10, 1, s)
+	s := newTestMemoryStorage(withPeers(1))
+	rn := newTestRawNode(1, 10, 1, s)
 	n := newNode(rn)
 	r := rn.raft
 	go n.run()
@@ -173,8 +173,8 @@ func TestNodeReadIndex(t *testing.T) {
 	}
 	wrs := []ReadState{{Index: uint64(1), RequestCtx: []byte("somedata")}}
 
-	s := NewMemoryStorage()
-	rn := newTestRawNode(1, []uint64{1}, 10, 1, s)
+	s := newTestMemoryStorage(withPeers(1))
+	rn := newTestRawNode(1, 10, 1, s)
 	n := newNode(rn)
 	r := rn.raft
 	r.readStates = wrs
@@ -215,9 +215,9 @@ func TestNodeReadIndex(t *testing.T) {
 // TestDisableProposalForwarding ensures that proposals are not forwarded to
 // the leader when DisableProposalForwarding is true.
 func TestDisableProposalForwarding(t *testing.T) {
-	r1 := newTestRaft(1, []uint64{1, 2, 3}, 10, 1, NewMemoryStorage())
-	r2 := newTestRaft(2, []uint64{1, 2, 3}, 10, 1, NewMemoryStorage())
-	cfg3 := newTestConfig(3, []uint64{1, 2, 3}, 10, 1, NewMemoryStorage())
+	r1 := newTestRaft(1, 10, 1, newTestMemoryStorage(withPeers(1, 2, 3)))
+	r2 := newTestRaft(2, 10, 1, newTestMemoryStorage(withPeers(1, 2, 3)))
+	cfg3 := newTestConfig(3, 10, 1, newTestMemoryStorage(withPeers(1, 2, 3)))
 	cfg3.DisableProposalForwarding = true
 	r3 := newRaft(cfg3)
 	nt := newNetwork(r1, r2, r3)
@@ -247,9 +247,9 @@ func TestDisableProposalForwarding(t *testing.T) {
 // TestNodeReadIndexToOldLeader ensures that raftpb.MsgReadIndex to old leader
 // gets forwarded to the new leader and 'send' method does not attach its term.
 func TestNodeReadIndexToOldLeader(t *testing.T) {
-	r1 := newTestRaft(1, []uint64{1, 2, 3}, 10, 1, NewMemoryStorage())
-	r2 := newTestRaft(2, []uint64{1, 2, 3}, 10, 1, NewMemoryStorage())
-	r3 := newTestRaft(3, []uint64{1, 2, 3}, 10, 1, NewMemoryStorage())
+	r1 := newTestRaft(1, 10, 1, newTestMemoryStorage(withPeers(1, 2, 3)))
+	r2 := newTestRaft(2, 10, 1, newTestMemoryStorage(withPeers(1, 2, 3)))
+	r3 := newTestRaft(3, 10, 1, newTestMemoryStorage(withPeers(1, 2, 3)))
 
 	nt := newNetwork(r1, r2, r3)
 
@@ -293,10 +293,11 @@ func TestNodeReadIndexToOldLeader(t *testing.T) {
 	if len(r1.msgs) != 2 {
 		t.Fatalf("len(r1.msgs) expected 1, got %d", len(r1.msgs))
 	}
-	readIndxMsg3 := raftpb.Message{From: 1, To: 3, Type: raftpb.MsgReadIndex, Entries: testEntries}
+	readIndxMsg3 := raftpb.Message{From: 2, To: 3, Type: raftpb.MsgReadIndex, Entries: testEntries}
 	if !reflect.DeepEqual(r1.msgs[0], readIndxMsg3) {
 		t.Fatalf("r1.msgs[0] expected %+v, got %+v", readIndxMsg3, r1.msgs[0])
 	}
+	readIndxMsg3 = raftpb.Message{From: 3, To: 3, Type: raftpb.MsgReadIndex, Entries: testEntries}
 	if !reflect.DeepEqual(r1.msgs[1], readIndxMsg3) {
 		t.Fatalf("r1.msgs[1] expected %+v, got %+v", readIndxMsg3, r1.msgs[1])
 	}
@@ -311,8 +312,8 @@ func TestNodeProposeConfig(t *testing.T) {
 		return nil
 	}
 
-	s := NewMemoryStorage()
-	rn := newTestRawNode(1, []uint64{1}, 10, 1, s)
+	s := newTestMemoryStorage(withPeers(1))
+	rn := newTestRawNode(1, 10, 1, s)
 	n := newNode(rn)
 	r := rn.raft
 	go n.run()
@@ -350,8 +351,8 @@ func TestNodeProposeConfig(t *testing.T) {
 // TestNodeProposeAddDuplicateNode ensures that two proposes to add the same node should
 // not affect the later propose to add new node.
 func TestNodeProposeAddDuplicateNode(t *testing.T) {
-	s := NewMemoryStorage()
-	rn := newTestRawNode(1, []uint64{1}, 10, 1, s)
+	s := newTestMemoryStorage(withPeers(1))
+	rn := newTestRawNode(1, 10, 1, s)
 	n := newNode(rn)
 	go n.run()
 	n.Campaign(context.TODO())
@@ -426,7 +427,7 @@ func TestNodeProposeAddDuplicateNode(t *testing.T) {
 // know who is the current leader; node will accept proposal when it knows
 // who is the current leader.
 func TestBlockProposal(t *testing.T) {
-	rn := newTestRawNode(1, []uint64{1}, 10, 1, NewMemoryStorage())
+	rn := newTestRawNode(1, 10, 1, newTestMemoryStorage(withPeers(1)))
 	n := newNode(rn)
 	go n.run()
 	defer n.Stop()
@@ -466,8 +467,8 @@ func TestNodeProposeWaitDropped(t *testing.T) {
 		return nil
 	}
 
-	s := NewMemoryStorage()
-	rn := newTestRawNode(1, []uint64{1}, 10, 1, s)
+	s := newTestMemoryStorage(withPeers(1))
+	rn := newTestRawNode(1, 10, 1, s)
 	n := newNode(rn)
 	r := rn.raft
 	go n.run()
@@ -501,8 +502,8 @@ func TestNodeProposeWaitDropped(t *testing.T) {
 // TestNodeTick ensures that node.Tick() will increase the
 // elapsed of the underlying raft state machine.
 func TestNodeTick(t *testing.T) {
-	s := NewMemoryStorage()
-	rn := newTestRawNode(1, []uint64{1}, 10, 1, s)
+	s := newTestMemoryStorage(withPeers(1))
+	rn := newTestRawNode(1, 10, 1, s)
 	n := newNode(rn)
 	r := rn.raft
 	go n.run()
@@ -522,7 +523,7 @@ func TestNodeTick(t *testing.T) {
 // TestNodeStop ensures that node.Stop() blocks until the node has stopped
 // processing, and that it is idempotent
 func TestNodeStop(t *testing.T) {
-	rn := newTestRawNode(1, []uint64{1}, 10, 1, NewMemoryStorage())
+	rn := newTestRawNode(1, 10, 1, newTestMemoryStorage(withPeers(1)))
 	n := newNode(rn)
 	donec := make(chan struct{})
 
@@ -812,8 +813,8 @@ func TestIsHardStateEqual(t *testing.T) {
 func TestNodeProposeAddLearnerNode(t *testing.T) {
 	ticker := time.NewTicker(time.Millisecond * 100)
 	defer ticker.Stop()
-	s := NewMemoryStorage()
-	rn := newTestRawNode(1, []uint64{1}, 10, 1, s)
+	s := newTestMemoryStorage(withPeers(1))
+	rn := newTestRawNode(1, 10, 1, s)
 	n := newNode(rn)
 	go n.run()
 	n.Campaign(context.TODO())
@@ -906,8 +907,8 @@ func TestAppendPagination(t *testing.T) {
 }
 
 func TestCommitPagination(t *testing.T) {
-	s := NewMemoryStorage()
-	cfg := newTestConfig(1, []uint64{1}, 10, 1, s)
+	s := newTestMemoryStorage(withPeers(1))
+	cfg := newTestConfig(1, 10, 1, s)
 	cfg.MaxCommittedSizePerReady = 2048
 	rn, err := NewRawNode(cfg)
 	if err != nil {
@@ -958,21 +959,21 @@ func (s *ignoreSizeHintMemStorage) Entries(lo, hi uint64, maxSize uint64) ([]raf
 // Storage's Entries size limitation is slightly more permissive than Raft's
 // internal one. The original bug was the following:
 //
-// - node learns that index 11 (or 100, doesn't matter) is committed
-// - nextEnts returns index 1..10 in CommittedEntries due to size limiting. However,
-//   index 10 already exceeds maxBytes, due to a user-provided impl of Entries.
-// - Commit index gets bumped to 10
-// - the node persists the HardState, but crashes before applying the entries
-// - upon restart, the storage returns the same entries, but `slice` takes a different code path
-//   (since it is now called with an upper bound of 10) and removes the last entry.
-// - Raft emits a HardState with a regressing commit index.
+//   - node learns that index 11 (or 100, doesn't matter) is committed
+//   - nextEnts returns index 1..10 in CommittedEntries due to size limiting. However,
+//     index 10 already exceeds maxBytes, due to a user-provided impl of Entries.
+//   - Commit index gets bumped to 10
+//   - the node persists the HardState, but crashes before applying the entries
+//   - upon restart, the storage returns the same entries, but `slice` takes a different code path
+//     (since it is now called with an upper bound of 10) and removes the last entry.
+//   - Raft emits a HardState with a regressing commit index.
 //
 // A simpler version of this test would have the storage return a lot less entries than dictated
 // by maxSize (for example, exactly one entry) after the restart, resulting in a larger regression.
 // This wouldn't need to exploit anything about Raft-internal code paths to fail.
 func TestNodeCommitPaginationAfterRestart(t *testing.T) {
 	s := &ignoreSizeHintMemStorage{
-		MemoryStorage: NewMemoryStorage(),
+		MemoryStorage: newTestMemoryStorage(withPeers(1)),
 	}
 	persistedHardState := raftpb.HardState{
 		Term:   1,
@@ -995,7 +996,7 @@ func TestNodeCommitPaginationAfterRestart(t *testing.T) {
 		size += uint64(ent.Size())
 	}
 
-	cfg := newTestConfig(1, []uint64{1}, 10, 1, s)
+	cfg := newTestConfig(1, 10, 1, s)
 	// Set a MaxSizePerMsg that would suggest to Raft that the last committed entry should
 	// not be included in the initial rd.CommittedEntries. However, our storage will ignore
 	// this and *will* return it (which is how the Commit index ended up being 10 initially).

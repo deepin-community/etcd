@@ -1,19 +1,17 @@
-Test-Command: /usr/bin/dh_golang_autopkgtest
-Depends: @,
-         @builddeps@,
-Restrictions: allow-stderr
-Features: test-name=dh-golang-autopkgtest
-
 Tests: integration
 Architecture: amd64
 Depends: curl,
+         procps,
          etcd-client,
          etcd-server,
          @builddeps@,
-Restrictions: allow-stderr, needs-root, breaks-testbed, isolation-container
+Restrictions: allow-stderr, needs-root, breaks-testbed, isolation-container, flaky
 
 Tests: functional
 Architecture: amd64
-Depends: netcat-openbsd,
+Depends: etcd-client,
+         etcd-server,
+         netcat-openbsd,
+         iproute2,
          @builddeps@,
-Restrictions: allow-stderr, isolation-container
+Restrictions: allow-stderr, isolation-container, flaky

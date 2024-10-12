@@ -19,7 +19,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/pkg/v3/cobrautl"
 )
 
 var (
@@ -31,6 +32,7 @@ var (
 	getFromKey     bool
 	getRev         int64
 	getKeysOnly    bool
+	getCountOnly   bool
 	printValueOnly bool
 )
 
@@ -50,6 +52,7 @@ func NewGetCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&getFromKey, "from-key", false, "Get keys that are greater than or equal to the given key using byte compare")
 	cmd.Flags().Int64Var(&getRev, "rev", 0, "Specify the kv revision")
 	cmd.Flags().BoolVar(&getKeysOnly, "keys-only", false, "Get only the keys")
+	cmd.Flags().BoolVar(&getCountOnly, "count-only", false, "Get only the count")
 	cmd.Flags().BoolVar(&printValueOnly, "print-value-only", false, `Only write values when using the "simple" output format`)
 	return cmd
 }
@@ -61,13 +64,19 @@ func getCommandFunc(cmd *cobra.Command, args []string) {
 	resp, err := mustClientFromCmd(cmd).Get(ctx, key, opts...)
 	cancel()
 	if err != nil {
-		ExitWithError(ExitError, err)
+		cobrautl.ExitWithError(cobrautl.ExitError, err)
+	}
+
+	if getCountOnly {
+		if _, fields := display.(*fieldsPrinter); !fields {
+			cobrautl.ExitWithError(cobrautl.ExitBadArgs, fmt.Errorf("--count-only is only for `--write-out=fields`"))
+		}
 	}
 
 	if printValueOnly {
 		dp, simple := (display).(*simplePrinter)
 		if !simple {
-			ExitWithError(ExitBadArgs, fmt.Errorf("print-value-only is only for `--write-out=simple`"))
+			cobrautl.ExitWithError(cobrautl.ExitBadArgs, fmt.Errorf("print-value-only is only for `--write-out=simple`"))
 		}
 		dp.valueOnly = true
 	}
@@ -76,11 +85,15 @@ func getCommandFunc(cmd *cobra.Command, args []string) {
 
 func getGetOp(args []string) (string, []clientv3.OpOption) {
 	if len(args) == 0 {
-		ExitWithError(ExitBadArgs, fmt.Errorf("get command needs one argument as key and an optional argument as range_end"))
+		cobrautl.ExitWithError(cobrautl.ExitBadArgs, fmt.Errorf("get command needs one argument as key and an optional argument as range_end"))
 	}
 
 	if getPrefix && getFromKey {
-		ExitWithError(ExitBadArgs, fmt.Errorf("`--prefix` and `--from-key` cannot be set at the same time, choose one"))
+		cobrautl.ExitWithError(cobrautl.ExitBadArgs, fmt.Errorf("`--prefix` and `--from-key` cannot be set at the same time, choose one"))
+	}
+
+	if getKeysOnly && getCountOnly {
+		cobrautl.ExitWithError(cobrautl.ExitBadArgs, fmt.Errorf("`--keys-only` and `--count-only` cannot be set at the same time, choose one"))
 	}
 
 	opts := []clientv3.OpOption{}
@@ -89,13 +102,13 @@ func getGetOp(args []string) (string, []clientv3.OpOption) {
 		opts = append(opts, clientv3.WithSerializable())
 	case "l":
 	default:
-		ExitWithError(ExitBadFeature, fmt.Errorf("unknown consistency flag %q", getConsistency))
+		cobrautl.ExitWithError(cobrautl.ExitBadFeature, fmt.Errorf("unknown consistency flag %q", getConsistency))
 	}
 
 	key := args[0]
 	if len(args) > 1 {
 		if getPrefix || getFromKey {
-			ExitWithError(ExitBadArgs, fmt.Errorf("too many arguments, only accept one argument when `--prefix` or `--from-key` is set"))
+			cobrautl.ExitWithError(cobrautl.ExitBadArgs, fmt.Errorf("too many arguments, only accept one argument when `--prefix` or `--from-key` is set"))
 		}
 		opts = append(opts, clientv3.WithRange(args[1]))
 	}
@@ -115,7 +128,7 @@ func getGetOp(args []string) (string, []clientv3.OpOption) {
 	case sortOrder == "":
 		// nothing
 	default:
-		ExitWithError(ExitBadFeature, fmt.Errorf("bad sort order %v", getSortOrder))
+		cobrautl.ExitWithError(cobrautl.ExitBadFeature, fmt.Errorf("bad sort order %v", getSortOrder))
 	}
 
 	sortByTarget := clientv3.SortByKey
@@ -134,7 +147,7 @@ func getGetOp(args []string) (string, []clientv3.OpOption) {
 	case sortTarget == "":
 		// nothing
 	default:
-		ExitWithError(ExitBadFeature, fmt.Errorf("bad sort target %v", getSortTarget))
+		cobrautl.ExitWithError(cobrautl.ExitBadFeature, fmt.Errorf("bad sort target %v", getSortTarget))
 	}
 
 	opts = append(opts, clientv3.WithSort(sortByTarget, sortByOrder))
@@ -157,6 +170,10 @@ func getGetOp(args []string) (string, []clientv3.OpOption) {
 
 	if getKeysOnly {
 		opts = append(opts, clientv3.WithKeysOnly())
+	}
+
+	if getCountOnly {
+		opts = append(opts, clientv3.WithCountOnly())
 	}
 
 	return key, opts

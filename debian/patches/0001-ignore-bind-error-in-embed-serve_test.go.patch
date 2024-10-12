@@ -7,24 +7,24 @@ etcd-server is installed, then the service is started by default.
 
 Forwarded: not-needed
 ---
- embed/serve_test.go | 7 ++++++-
+ server/embed/serve_test.go | 7 ++++++-
  1 file changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/embed/serve_test.go b/embed/serve_test.go
-index 3885645..ca048a6 100644
---- a/embed/serve_test.go
-+++ b/embed/serve_test.go
-@@ -16,6 +16,7 @@ package embed
- 
+diff --git a/server/embed/serve_test.go b/server/embed/serve_test.go
+index 6a19911..7db0435 100644
+--- a/server/embed/serve_test.go
++++ b/server/embed/serve_test.go
+@@ -17,6 +17,7 @@ package embed
  import (
+ 	"fmt"
  	"io/ioutil"
 +	"net"
+ 	"net/url"
  	"os"
  	"testing"
- 
-@@ -33,6 +34,10 @@ func TestStartEtcdWrongToken(t *testing.T) {
- 	cfg.Dir = tdir
+@@ -49,7 +50,11 @@ func TestStartEtcdWrongToken(t *testing.T) {
  	cfg.AuthToken = "wrong-token"
+ 
  	if _, err = StartEtcd(cfg); err != auth.ErrInvalidAuthOpts {
 -		t.Fatalf("expected %v, got %v", auth.ErrInvalidAuthOpts, err)
 +		if _, ok := err.(*net.OpError); ok {
@@ -34,3 +34,4 @@ index 3885645..ca048a6 100644
 +		}
  	}
  }
+ 

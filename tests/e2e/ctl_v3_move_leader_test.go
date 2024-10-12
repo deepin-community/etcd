@@ -22,29 +22,29 @@ import (
 	"testing"
 	"time"
 
-	"go.etcd.io/etcd/clientv3"
-	"go.etcd.io/etcd/pkg/testutil"
-	"go.etcd.io/etcd/pkg/transport"
-	"go.etcd.io/etcd/pkg/types"
+	"go.etcd.io/etcd/client/pkg/v3/transport"
+	"go.etcd.io/etcd/client/pkg/v3/types"
+	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/tests/v3/framework/e2e"
 )
 
 func TestCtlV3MoveLeaderScenarios(t *testing.T) {
-	security := map[string]struct {
-		cfg etcdProcessClusterConfig
+	securityParent := map[string]struct {
+		cfg e2e.EtcdProcessClusterConfig
 	}{
-		"Secure":   {cfg: configTLS},
-		"Insecure": {cfg: configNoTLS},
+		"Secure":   {cfg: *e2e.NewConfigTLS()},
+		"Insecure": {cfg: *e2e.NewConfigNoTLS()},
 	}
 
 	tests := map[string]struct {
-		env map[string]struct{}
+		env map[string]string
 	}{
-		"happy path": {env: nil},
-		"with env":   {env: map[string]struct{}{}},
+		"happy path": {env: map[string]string{}},
+		"with env":   {env: map[string]string{"ETCDCTL_ENDPOINTS": "something-else-is-set"}},
 	}
 
-	for testName, tx := range tests {
-		for subTestName, tc := range security {
+	for testName, tc := range securityParent {
+		for subTestName, tx := range tests {
 			t.Run(testName+" "+subTestName, func(t *testing.T) {
 				testCtlV3MoveLeader(t, tc.cfg, tx.env)
 			})
@@ -52,8 +52,8 @@ func TestCtlV3MoveLeaderScenarios(t *testing.T) {
 	}
 }
 
-func testCtlV3MoveLeader(t *testing.T, cfg etcdProcessClusterConfig, envVars map[string]struct{}) {
-	defer testutil.AfterTest(t)
+func testCtlV3MoveLeader(t *testing.T, cfg e2e.EtcdProcessClusterConfig, envVars map[string]string) {
+	e2e.BeforeTest(t)
 
 	epc := setupEtcdctlTest(t, &cfg, true)
 	defer func() {
@@ -63,11 +63,11 @@ func testCtlV3MoveLeader(t *testing.T, cfg etcdProcessClusterConfig, envVars map
 	}()
 
 	var tcfg *tls.Config
-	if cfg.clientTLS == clientTLS {
+	if cfg.ClientTLS == e2e.ClientTLS {
 		tinfo := transport.TLSInfo{
-			CertFile:      certPath,
-			KeyFile:       privateKeyPath,
-			TrustedCAFile: caPath,
+			CertFile:      e2e.CertPath,
+			KeyFile:       e2e.PrivateKeyPath,
+			TrustedCAFile: e2e.CaPath,
 		}
 		var err error
 		tcfg, err = tinfo.ClientConfig()
@@ -108,23 +108,15 @@ func testCtlV3MoveLeader(t *testing.T, cfg etcdProcessClusterConfig, envVars map
 	defer os.Unsetenv("ETCDCTL_API")
 	cx := ctlCtx{
 		t:           t,
-		cfg:         configNoTLS,
+		cfg:         *e2e.NewConfigNoTLS(),
 		dialTimeout: 7 * time.Second,
 		epc:         epc,
 		envMap:      envVars,
 	}
 
-	defer func() {
-		if cx.envMap != nil {
-			for k := range cx.envMap {
-				os.Unsetenv(k)
-			}
-		}
-	}()
-
 	tests := []struct {
-		prefixes []string
-		expect   string
+		eps    []string
+		expect string
 	}{
 		{ // request to non-leader
 			[]string{cx.epc.EndpointsV3()[(leadIdx+1)%3]},
@@ -140,9 +132,9 @@ func testCtlV3MoveLeader(t *testing.T, cfg etcdProcessClusterConfig, envVars map
 		},
 	}
 	for i, tc := range tests {
-		pf := cx.prefixArgs(tc.prefixes)
-		cmdArgs := append(pf, "move-leader", types.ID(transferee).String())
-		if err := spawnWithExpect(cmdArgs, tc.expect); err != nil {
+		prefix := cx.prefixArgs(tc.eps)
+		cmdArgs := append(prefix, "move-leader", types.ID(transferee).String())
+		if err := e2e.SpawnWithExpectWithEnv(cmdArgs, cx.envMap, tc.expect); err != nil {
 			t.Fatalf("#%d: %v", i, err)
 		}
 	}

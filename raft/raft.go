@@ -25,10 +25,10 @@ import (
 	"sync"
 	"time"
 
-	"go.etcd.io/etcd/raft/confchange"
-	"go.etcd.io/etcd/raft/quorum"
-	pb "go.etcd.io/etcd/raft/raftpb"
-	"go.etcd.io/etcd/raft/tracker"
+	"go.etcd.io/etcd/raft/v3/confchange"
+	"go.etcd.io/etcd/raft/v3/quorum"
+	pb "go.etcd.io/etcd/raft/v3/raftpb"
+	"go.etcd.io/etcd/raft/v3/tracker"
 )
 
 // None is a placeholder node ID used when there is no leader.
@@ -116,17 +116,6 @@ func (st StateType) String() string {
 type Config struct {
 	// ID is the identity of the local raft. ID cannot be 0.
 	ID uint64
-
-	// peers contains the IDs of all nodes (including self) in the raft cluster. It
-	// should only be set when starting a new raft cluster. Restarting raft from
-	// previous configuration will panic if peers is set. peer is private and only
-	// used for testing right now.
-	peers []uint64
-
-	// learners contains the IDs of all learner nodes (including self if the
-	// local node is a learner) in the raft cluster. learners only receives
-	// entries from the leader node. It does not vote or promote itself.
-	learners []uint64
 
 	// ElectionTick is the number of Node.Tick invocations that must pass between
 	// elections. That is, if a follower does not receive any message from the
@@ -241,7 +230,7 @@ func (c *Config) validate() error {
 	}
 
 	if c.Logger == nil {
-		c.Logger = raftLogger
+		c.Logger = getLogger()
 	}
 
 	if c.ReadOnlyOption == ReadOnlyLeaseBased && !c.CheckQuorum {
@@ -336,17 +325,6 @@ func newRaft(c *Config) *raft {
 		panic(err) // TODO(bdarnell)
 	}
 
-	if len(c.peers) > 0 || len(c.learners) > 0 {
-		if len(cs.Voters) > 0 || len(cs.Learners) > 0 {
-			// TODO(bdarnell): the peers argument is always nil except in
-			// tests; the argument should be removed and these tests should be
-			// updated to specify their nodes through a snapshot.
-			panic("cannot specify both newRaft(peers, learners) and ConfState.(Voters, Learners)")
-		}
-		cs.Voters = c.peers
-		cs.Learners = c.learners
-	}
-
 	r := &raft{
 		id:                        c.ID,
 		lead:                      None,
@@ -403,9 +381,12 @@ func (r *raft) hardState() pb.HardState {
 	}
 }
 
-// send persists state to stable storage and then sends to its mailbox.
+// send schedules persisting state to a stable storage and AFTER that
+// sending the message (as part of next Ready message processing).
 func (r *raft) send(m pb.Message) {
-	m.From = r.id
+	if m.From == None {
+		m.From = r.id
+	}
 	if m.Type == pb.MsgVote || m.Type == pb.MsgVoteResp || m.Type == pb.MsgPreVote || m.Type == pb.MsgPreVoteResp {
 		if m.Term == 0 {
 			// All {pre-,}campaign messages need to have the term set when
@@ -560,35 +541,34 @@ func (r *raft) bcastHeartbeatWithCtx(ctx []byte) {
 }
 
 func (r *raft) advance(rd Ready) {
+	r.reduceUncommittedSize(rd.CommittedEntries)
+
 	// If entries were applied (or a snapshot), update our cursor for
 	// the next Ready. Note that if the current HardState contains a
 	// new Commit index, this does not mean that we're also applying
 	// all of the new entries due to commit pagination by size.
-	if index := rd.appliedCursor(); index > 0 {
-		r.raftLog.appliedTo(index)
-		if r.prs.Config.AutoLeave && index >= r.pendingConfIndex && r.state == StateLeader {
+	if newApplied := rd.appliedCursor(); newApplied > 0 {
+		oldApplied := r.raftLog.applied
+		r.raftLog.appliedTo(newApplied)
+
+		if r.prs.Config.AutoLeave && oldApplied <= r.pendingConfIndex && newApplied >= r.pendingConfIndex && r.state == StateLeader {
 			// If the current (and most recent, at least for this leader's term)
-			// configuration should be auto-left, initiate that now.
-			ccdata, err := (&pb.ConfChangeV2{}).Marshal()
-			if err != nil {
-				panic(err)
-			}
+			// configuration should be auto-left, initiate that now. We use a
+			// nil Data which unmarshals into an empty ConfChangeV2 and has the
+			// benefit that appendEntry can never refuse it based on its size
+			// (which registers as zero).
 			ent := pb.Entry{
 				Type: pb.EntryConfChangeV2,
-				Data: ccdata,
+				Data: nil,
 			}
+			// There's no way in which this proposal should be able to be rejected.
 			if !r.appendEntry(ent) {
-				// If we could not append the entry, bump the pending conf index
-				// so that we'll try again later.
-				//
-				// TODO(tbg): test this case.
-				r.pendingConfIndex = r.raftLog.lastIndex()
-			} else {
-				r.logger.Infof("initiating automatic transition out of joint configuration %s", r.prs.Config)
+				panic("refused un-refusable auto-leaving ConfChangeV2")
 			}
+			r.pendingConfIndex = r.raftLog.lastIndex()
+			r.logger.Infof("initiating automatic transition out of joint configuration %s", r.prs.Config)
 		}
 	}
-	r.reduceUncommittedSize(rd.CommittedEntries)
 
 	if len(rd.Entries) > 0 {
 		e := rd.Entries[len(rd.Entries)-1]
@@ -771,6 +751,29 @@ func (r *raft) becomeLeader() {
 	r.logger.Infof("%x became leader at term %d", r.id, r.Term)
 }
 
+func (r *raft) hup(t CampaignType) {
+	if r.state == StateLeader {
+		r.logger.Debugf("%x ignoring MsgHup because already leader", r.id)
+		return
+	}
+
+	if !r.promotable() {
+		r.logger.Warningf("%x is unpromotable and can not campaign", r.id)
+		return
+	}
+	ents, err := r.raftLog.slice(r.raftLog.applied+1, r.raftLog.committed+1, noLimit)
+	if err != nil {
+		r.logger.Panicf("unexpected error getting unapplied entries (%v)", err)
+	}
+	if n := numOfPendingConf(ents); n != 0 && r.raftLog.committed > r.raftLog.applied {
+		r.logger.Warningf("%x cannot campaign at term %d since there are still %d pending configuration changes to apply", r.id, r.Term, n)
+		return
+	}
+
+	r.logger.Infof("%x is starting a new election at term %d", r.id, r.Term)
+	r.campaign(t)
+}
+
 // campaign transitions the raft instance to candidate state. This must only be
 // called after verifying that this is a legitimate transition.
 func (r *raft) campaign(t CampaignType) {
@@ -912,28 +915,10 @@ func (r *raft) Step(m pb.Message) error {
 
 	switch m.Type {
 	case pb.MsgHup:
-		if r.state != StateLeader {
-			if !r.promotable() {
-				r.logger.Warningf("%x is unpromotable and can not campaign; ignoring MsgHup", r.id)
-				return nil
-			}
-			ents, err := r.raftLog.slice(r.raftLog.applied+1, r.raftLog.committed+1, noLimit)
-			if err != nil {
-				r.logger.Panicf("unexpected error getting unapplied entries (%v)", err)
-			}
-			if n := numOfPendingConf(ents); n != 0 && r.raftLog.committed > r.raftLog.applied {
-				r.logger.Warningf("%x cannot campaign at term %d since there are still %d pending configuration changes to apply", r.id, r.Term, n)
-				return nil
-			}
-
-			r.logger.Infof("%x is starting a new election at term %d", r.id, r.Term)
-			if r.preVote {
-				r.campaign(campaignPreElection)
-			} else {
-				r.campaign(campaignElection)
-			}
+		if r.preVote {
+			r.hup(campaignPreElection)
 		} else {
-			r.logger.Debugf("%x ignoring MsgHup because already leader", r.id)
+			r.hup(campaignElection)
 		}
 
 	case pb.MsgVote, pb.MsgPreVote:
@@ -1116,9 +1101,127 @@ func stepLeader(r *raft, m pb.Message) error {
 		pr.RecentActive = true
 
 		if m.Reject {
-			r.logger.Debugf("%x received MsgAppResp(MsgApp was rejected, lastindex: %d) from %x for index %d",
-				r.id, m.RejectHint, m.From, m.Index)
-			if pr.MaybeDecrTo(m.Index, m.RejectHint) {
+			// RejectHint is the suggested next base entry for appending (i.e.
+			// we try to append entry RejectHint+1 next), and LogTerm is the
+			// term that the follower has at index RejectHint. Older versions
+			// of this library did not populate LogTerm for rejections and it
+			// is zero for followers with an empty log.
+			//
+			// Under normal circumstances, the leader's log is longer than the
+			// follower's and the follower's log is a prefix of the leader's
+			// (i.e. there is no divergent uncommitted suffix of the log on the
+			// follower). In that case, the first probe reveals where the
+			// follower's log ends (RejectHint=follower's last index) and the
+			// subsequent probe succeeds.
+			//
+			// However, when networks are partitioned or systems overloaded,
+			// large divergent log tails can occur. The naive attempt, probing
+			// entry by entry in decreasing order, will be the product of the
+			// length of the diverging tails and the network round-trip latency,
+			// which can easily result in hours of time spent probing and can
+			// even cause outright outages. The probes are thus optimized as
+			// described below.
+			r.logger.Debugf("%x received MsgAppResp(rejected, hint: (index %d, term %d)) from %x for index %d",
+				r.id, m.RejectHint, m.LogTerm, m.From, m.Index)
+			nextProbeIdx := m.RejectHint
+			if m.LogTerm > 0 {
+				// If the follower has an uncommitted log tail, we would end up
+				// probing one by one until we hit the common prefix.
+				//
+				// For example, if the leader has:
+				//
+				//   idx        1 2 3 4 5 6 7 8 9
+				//              -----------------
+				//   term (L)   1 3 3 3 5 5 5 5 5
+				//   term (F)   1 1 1 1 2 2
+				//
+				// Then, after sending an append anchored at (idx=9,term=5) we
+				// would receive a RejectHint of 6 and LogTerm of 2. Without the
+				// code below, we would try an append at index 6, which would
+				// fail again.
+				//
+				// However, looking only at what the leader knows about its own
+				// log and the rejection hint, it is clear that a probe at index
+				// 6, 5, 4, 3, and 2 must fail as well:
+				//
+				// For all of these indexes, the leader's log term is larger than
+				// the rejection's log term. If a probe at one of these indexes
+				// succeeded, its log term at that index would match the leader's,
+				// i.e. 3 or 5 in this example. But the follower already told the
+				// leader that it is still at term 2 at index 9, and since the
+				// log term only ever goes up (within a log), this is a contradiction.
+				//
+				// At index 1, however, the leader can draw no such conclusion,
+				// as its term 1 is not larger than the term 2 from the
+				// follower's rejection. We thus probe at 1, which will succeed
+				// in this example. In general, with this approach we probe at
+				// most once per term found in the leader's log.
+				//
+				// There is a similar mechanism on the follower (implemented in
+				// handleAppendEntries via a call to findConflictByTerm) that is
+				// useful if the follower has a large divergent uncommitted log
+				// tail[1], as in this example:
+				//
+				//   idx        1 2 3 4 5 6 7 8 9
+				//              -----------------
+				//   term (L)   1 3 3 3 3 3 3 3 7
+				//   term (F)   1 3 3 4 4 5 5 5 6
+				//
+				// Naively, the leader would probe at idx=9, receive a rejection
+				// revealing the log term of 6 at the follower. Since the leader's
+				// term at the previous index is already smaller than 6, the leader-
+				// side optimization discussed above is ineffective. The leader thus
+				// probes at index 8 and, naively, receives a rejection for the same
+				// index and log term 5. Again, the leader optimization does not improve
+				// over linear probing as term 5 is above the leader's term 3 for that
+				// and many preceding indexes; the leader would have to probe linearly
+				// until it would finally hit index 3, where the probe would succeed.
+				//
+				// Instead, we apply a similar optimization on the follower. When the
+				// follower receives the probe at index 8 (log term 3), it concludes
+				// that all of the leader's log preceding that index has log terms of
+				// 3 or below. The largest index in the follower's log with a log term
+				// of 3 or below is index 3. The follower will thus return a rejection
+				// for index=3, log term=3 instead. The leader's next probe will then
+				// succeed at that index.
+				//
+				// [1]: more precisely, if the log terms in the large uncommitted
+				// tail on the follower are larger than the leader's. At first,
+				// it may seem unintuitive that a follower could even have such
+				// a large tail, but it can happen:
+				//
+				// 1. Leader appends (but does not commit) entries 2 and 3, crashes.
+				//   idx        1 2 3 4 5 6 7 8 9
+				//              -----------------
+				//   term (L)   1 2 2     [crashes]
+				//   term (F)   1
+				//   term (F)   1
+				//
+				// 2. a follower becomes leader and appends entries at term 3.
+				//              -----------------
+				//   term (x)   1 2 2     [down]
+				//   term (F)   1 3 3 3 3
+				//   term (F)   1
+				//
+				// 3. term 3 leader goes down, term 2 leader returns as term 4
+				//    leader. It commits the log & entries at term 4.
+				//
+				//              -----------------
+				//   term (L)   1 2 2 2
+				//   term (x)   1 3 3 3 3 [down]
+				//   term (F)   1
+				//              -----------------
+				//   term (L)   1 2 2 2 4 4 4
+				//   term (F)   1 3 3 3 3 [gets probed]
+				//   term (F)   1 2 2 2 4 4 4
+				//
+				// 4. the leader will now probe the returning follower at index
+				//    7, the rejection points it at the end of the follower's log
+				//    which is at a higher log term than the actually committed
+				//    log.
+				nextProbeIdx = r.raftLog.findConflictByTerm(m.RejectHint, m.LogTerm)
+			}
+			if pr.MaybeDecrTo(m.Index, nextProbeIdx) {
 				r.logger.Debugf("%x decreased progress of %x to [%s]", r.id, m.From, pr)
 				if pr.State == tracker.StateReplicate {
 					pr.BecomeProbe()
@@ -1194,11 +1297,8 @@ func stepLeader(r *raft, m pb.Message) error {
 
 		rss := r.readOnly.advance(m)
 		for _, rs := range rss {
-			req := rs.req
-			if req.From == None || req.From == r.id { // from local member
-				r.readStates = append(r.readStates, ReadState{Index: rs.index, RequestCtx: req.Entries[0].Data})
-			} else {
-				r.send(pb.Message{To: req.From, Type: pb.MsgReadIndexResp, Index: rs.index, Entries: req.Entries})
+			if resp := r.responseToReadIndexReq(rs.req, rs.index); resp.To != None {
+				r.send(resp)
 			}
 		}
 	case pb.MsgSnapStatus:
@@ -1344,15 +1444,11 @@ func stepFollower(r *raft, m pb.Message) error {
 		m.To = r.lead
 		r.send(m)
 	case pb.MsgTimeoutNow:
-		if r.promotable() {
-			r.logger.Infof("%x [term %d] received MsgTimeoutNow from %x and starts an election to get leadership.", r.id, r.Term, m.From)
-			// Leadership transfers never use pre-vote even if r.preVote is true; we
-			// know we are not recovering from a partition so there is no need for the
-			// extra round trip.
-			r.campaign(campaignTransfer)
-		} else {
-			r.logger.Infof("%x received MsgTimeoutNow from %x but is not promotable", r.id, m.From)
-		}
+		r.logger.Infof("%x [term %d] received MsgTimeoutNow from %x and starts an election to get leadership.", r.id, r.Term, m.From)
+		// Leadership transfers never use pre-vote even if r.preVote is true; we
+		// know we are not recovering from a partition so there is no need for the
+		// extra round trip.
+		r.hup(campaignTransfer)
 	case pb.MsgReadIndex:
 		if r.lead == None {
 			r.logger.Infof("%x no leader at term %d; dropping index reading msg", r.id, r.Term)
@@ -1381,7 +1477,30 @@ func (r *raft) handleAppendEntries(m pb.Message) {
 	} else {
 		r.logger.Debugf("%x [logterm: %d, index: %d] rejected MsgApp [logterm: %d, index: %d] from %x",
 			r.id, r.raftLog.zeroTermOnErrCompacted(r.raftLog.term(m.Index)), m.Index, m.LogTerm, m.Index, m.From)
-		r.send(pb.Message{To: m.From, Type: pb.MsgAppResp, Index: m.Index, Reject: true, RejectHint: r.raftLog.lastIndex()})
+
+		// Return a hint to the leader about the maximum index and term that the
+		// two logs could be divergent at. Do this by searching through the
+		// follower's log for the maximum (index, term) pair with a term <= the
+		// MsgApp's LogTerm and an index <= the MsgApp's Index. This can help
+		// skip all indexes in the follower's uncommitted tail with terms
+		// greater than the MsgApp's LogTerm.
+		//
+		// See the other caller for findConflictByTerm (in stepLeader) for a much
+		// more detailed explanation of this mechanism.
+		hintIndex := min(m.Index, r.raftLog.lastIndex())
+		hintIndex = r.raftLog.findConflictByTerm(hintIndex, m.LogTerm)
+		hintTerm, err := r.raftLog.term(hintIndex)
+		if err != nil {
+			panic(fmt.Sprintf("term(%d) must be valid, but got %v", hintIndex, err))
+		}
+		r.send(pb.Message{
+			To:         m.From,
+			Type:       pb.MsgAppResp,
+			Index:      m.Index,
+			Reject:     true,
+			RejectHint: hintIndex,
+			LogTerm:    hintTerm,
+		})
 	}
 }
 
@@ -1424,19 +1543,26 @@ func (r *raft) restore(s pb.Snapshot) bool {
 	}
 
 	// More defense-in-depth: throw away snapshot if recipient is not in the
-	// config. This shouuldn't ever happen (at the time of writing) but lots of
+	// config. This shouldn't ever happen (at the time of writing) but lots of
 	// code here and there assumes that r.id is in the progress tracker.
 	found := false
 	cs := s.Metadata.ConfState
+
 	for _, set := range [][]uint64{
 		cs.Voters,
 		cs.Learners,
+		cs.VotersOutgoing,
+		// `LearnersNext` doesn't need to be checked. According to the rules, if a peer in
+		// `LearnersNext`, it has to be in `VotersOutgoing`.
 	} {
 		for _, id := range set {
 			if id == r.id {
 				found = true
 				break
 			}
+		}
+		if found {
+			break
 		}
 	}
 	if !found {
@@ -1485,7 +1611,7 @@ func (r *raft) restore(s pb.Snapshot) bool {
 // which is true when its own id is in progress list.
 func (r *raft) promotable() bool {
 	pr := r.prs.Progress[r.id]
-	return pr != nil && !pr.IsLearner
+	return pr != nil && !pr.IsLearner && !r.raftLog.hasPendingSnapshot()
 }
 
 func (r *raft) applyConfChange(cc pb.ConfChangeV2) pb.ConfState {
@@ -1559,8 +1685,8 @@ func (r *raft) switchToConfig(cfg tracker.Config, prs tracker.ProgressMap) pb.Co
 			r.maybeSendAppend(id, false /* sendIfEmpty */)
 		})
 	}
-	// If the the leadTransferee was removed, abort the leadership transfer.
-	if _, tOK := r.prs.Progress[r.leadTransferee]; !tOK && r.leadTransferee != 0 {
+	// If the the leadTransferee was removed or demoted, abort the leadership transfer.
+	if _, tOK := r.prs.Config.Voters.IDs()[r.leadTransferee]; !tOK && r.leadTransferee != 0 {
 		r.abortLeaderTransfer()
 	}
 
@@ -1623,16 +1749,23 @@ func (r *raft) responseToReadIndexReq(req pb.Message, readIndex uint64) pb.Messa
 // If the new entries would exceed the limit, the method returns false. If not,
 // the increase in uncommitted entry size is recorded and the method returns
 // true.
+//
+// Empty payloads are never refused. This is used both for appending an empty
+// entry at a new leader's term, as well as leaving a joint configuration.
 func (r *raft) increaseUncommittedSize(ents []pb.Entry) bool {
 	var s uint64
 	for _, e := range ents {
 		s += uint64(PayloadSize(e))
 	}
 
-	if r.uncommittedSize > 0 && r.uncommittedSize+s > r.maxUncommittedSize {
+	if r.uncommittedSize > 0 && s > 0 && r.uncommittedSize+s > r.maxUncommittedSize {
 		// If the uncommitted tail of the Raft log is empty, allow any size
 		// proposal. Otherwise, limit the size of the uncommitted tail of the
 		// log and drop any proposal that would push the size over the limit.
+		// Note the added requirement s>0 which is used to make sure that
+		// appending single empty entries to the log always succeeds, used both
+		// for replicating a new leader's initial empty entry, and for
+		// auto-leaving joint configurations.
 		return false
 	}
 	r.uncommittedSize += s
@@ -1664,7 +1797,7 @@ func (r *raft) reduceUncommittedSize(ents []pb.Entry) {
 func numOfPendingConf(ents []pb.Entry) int {
 	n := 0
 	for i := range ents {
-		if ents[i].Type == pb.EntryConfChange {
+		if ents[i].Type == pb.EntryConfChange || ents[i].Type == pb.EntryConfChangeV2 {
 			n++
 		}
 	}

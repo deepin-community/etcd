@@ -20,11 +20,15 @@ import (
 	"sync"
 	"time"
 
-	v3 "go.etcd.io/etcd/clientv3"
-	"go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
-	"go.etcd.io/etcd/pkg/flags"
+	"go.etcd.io/etcd/api/v3/etcdserverpb"
+	"go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
+	"go.etcd.io/etcd/client/pkg/v3/logutil"
+	v3 "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/pkg/v3/cobrautl"
+	"go.etcd.io/etcd/pkg/v3/flags"
 
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 var epClusterEndpoints bool
@@ -85,7 +89,11 @@ type epHealth struct {
 
 // epHealthCommandFunc executes the "endpoint-health" command.
 func epHealthCommandFunc(cmd *cobra.Command, args []string) {
-	flags.SetPflagsFromEnv("ETCDCTL", cmd.InheritedFlags())
+	lg, err := logutil.CreateDefaultZapLogger(zap.InfoLevel)
+	if err != nil {
+		cobrautl.ExitWithError(cobrautl.ExitError, err)
+	}
+	flags.SetPflagsFromEnv(lg, "ETCDCTL", cmd.InheritedFlags())
 	initDisplayFromCmd(cmd)
 
 	sec := secureCfgFromCmd(cmd)
@@ -97,7 +105,7 @@ func epHealthCommandFunc(cmd *cobra.Command, args []string) {
 	for _, ep := range endpointsFromCluster(cmd) {
 		cfg, err := newClientCfg([]string{ep}, dt, ka, kat, sec, auth)
 		if err != nil {
-			ExitWithError(ExitBadArgs, err)
+			cobrautl.ExitWithError(cobrautl.ExitBadArgs, err)
 		}
 		cfgs = append(cfgs, cfg)
 	}
@@ -109,6 +117,7 @@ func epHealthCommandFunc(cmd *cobra.Command, args []string) {
 		go func(cfg *v3.Config) {
 			defer wg.Done()
 			ep := cfg.Endpoints[0]
+			cfg.Logger = lg.Named("client")
 			cli, err := v3.New(*cfg)
 			if err != nil {
 				hch <- epHealth{Ep: ep, Health: false, Error: err.Error()}
@@ -119,7 +128,6 @@ func epHealthCommandFunc(cmd *cobra.Command, args []string) {
 			// endpoint is health.
 			ctx, cancel := commandCtx(cmd)
 			_, err = cli.Get(ctx, "health")
-			cancel()
 			eh := epHealth{Ep: ep, Health: false, Took: time.Since(st).String()}
 			// permission denied is OK since proposal goes through consensus to get it
 			if err == nil || err == rpctypes.ErrPermissionDenied {
@@ -127,6 +135,28 @@ func epHealthCommandFunc(cmd *cobra.Command, args []string) {
 			} else {
 				eh.Error = err.Error()
 			}
+
+			if eh.Health {
+				resp, err := cli.AlarmList(ctx)
+				if err == nil && len(resp.Alarms) > 0 {
+					eh.Health = false
+					eh.Error = "Active Alarm(s): "
+					for _, v := range resp.Alarms {
+						switch v.Alarm {
+						case etcdserverpb.AlarmType_NOSPACE:
+							eh.Error = eh.Error + "NOSPACE "
+						case etcdserverpb.AlarmType_CORRUPT:
+							eh.Error = eh.Error + "CORRUPT "
+						default:
+							eh.Error = eh.Error + "UNKNOWN "
+						}
+					}
+				} else if err != nil {
+					eh.Health = false
+					eh.Error = "Unable to fetch the alarm list"
+				}
+			}
+			cancel()
 			hch <- eh
 		}(cfg)
 	}
@@ -144,7 +174,7 @@ func epHealthCommandFunc(cmd *cobra.Command, args []string) {
 	}
 	display.EndpointHealth(healthList)
 	if errs {
-		ExitWithError(ExitError, fmt.Errorf("unhealthy cluster"))
+		cobrautl.ExitWithError(cobrautl.ExitError, fmt.Errorf("unhealthy cluster"))
 	}
 }
 
@@ -173,7 +203,7 @@ func epStatusCommandFunc(cmd *cobra.Command, args []string) {
 	display.EndpointStatus(statusList)
 
 	if err != nil {
-		os.Exit(ExitError)
+		os.Exit(cobrautl.ExitError)
 	}
 }
 
@@ -202,7 +232,7 @@ func epHashKVCommandFunc(cmd *cobra.Command, args []string) {
 	display.EndpointHashKV(hashList)
 
 	if err != nil {
-		ExitWithError(ExitError, err)
+		cobrautl.ExitWithError(cobrautl.ExitError, err)
 	}
 }
 
@@ -210,7 +240,7 @@ func endpointsFromCluster(cmd *cobra.Command) []string {
 	if !epClusterEndpoints {
 		endpoints, err := cmd.Flags().GetStringSlice("endpoints")
 		if err != nil {
-			ExitWithError(ExitError, err)
+			cobrautl.ExitWithError(cobrautl.ExitError, err)
 		}
 		return endpoints
 	}
@@ -221,17 +251,17 @@ func endpointsFromCluster(cmd *cobra.Command) []string {
 	kat := keepAliveTimeoutFromCmd(cmd)
 	eps, err := endpointsFromCmd(cmd)
 	if err != nil {
-		ExitWithError(ExitError, err)
+		cobrautl.ExitWithError(cobrautl.ExitError, err)
 	}
 	// exclude auth for not asking needless password (MemberList() doesn't need authentication)
 
 	cfg, err := newClientCfg(eps, dt, ka, kat, sec, nil)
 	if err != nil {
-		ExitWithError(ExitError, err)
+		cobrautl.ExitWithError(cobrautl.ExitError, err)
 	}
 	c, err := v3.New(*cfg)
 	if err != nil {
-		ExitWithError(ExitError, err)
+		cobrautl.ExitWithError(cobrautl.ExitError, err)
 	}
 
 	ctx, cancel := commandCtx(cmd)
@@ -242,7 +272,7 @@ func endpointsFromCluster(cmd *cobra.Command) []string {
 	membs, err := c.MemberList(ctx)
 	if err != nil {
 		err = fmt.Errorf("failed to fetch endpoints from etcd cluster member list: %v", err)
-		ExitWithError(ExitError, err)
+		cobrautl.ExitWithError(cobrautl.ExitError, err)
 	}
 
 	ret := []string{}

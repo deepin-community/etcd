@@ -14,36 +14,56 @@
 
 package e2e
 
-import "testing"
+import (
+	"testing"
 
-func TestCtlV3UserAdd(t *testing.T)          { testCtl(t, userAddTest) }
-func TestCtlV3UserAddNoTLS(t *testing.T)     { testCtl(t, userAddTest, withCfg(configNoTLS)) }
-func TestCtlV3UserAddClientTLS(t *testing.T) { testCtl(t, userAddTest, withCfg(configClientTLS)) }
-func TestCtlV3UserAddPeerTLS(t *testing.T)   { testCtl(t, userAddTest, withCfg(configPeerTLS)) }
-func TestCtlV3UserAddTimeout(t *testing.T)   { testCtl(t, userAddTest, withDialTimeout(0)) }
+	"go.etcd.io/etcd/tests/v3/framework/e2e"
+)
+
+func TestCtlV3UserAdd(t *testing.T)      { testCtl(t, userAddTest) }
+func TestCtlV3UserAddNoTLS(t *testing.T) { testCtl(t, userAddTest, withCfg(*e2e.NewConfigNoTLS())) }
+func TestCtlV3UserAddClientTLS(t *testing.T) {
+	testCtl(t, userAddTest, withCfg(*e2e.NewConfigClientTLS()))
+}
+func TestCtlV3UserAddPeerTLS(t *testing.T) { testCtl(t, userAddTest, withCfg(*e2e.NewConfigPeerTLS())) }
+func TestCtlV3UserAddTimeout(t *testing.T) { testCtl(t, userAddTest, withDialTimeout(0)) }
 func TestCtlV3UserAddClientAutoTLS(t *testing.T) {
-	testCtl(t, userAddTest, withCfg(configClientAutoTLS))
+	testCtl(t, userAddTest, withCfg(*e2e.NewConfigClientAutoTLS()))
 }
-func TestCtlV3UserList(t *testing.T)          { testCtl(t, userListTest) }
-func TestCtlV3UserListNoTLS(t *testing.T)     { testCtl(t, userListTest, withCfg(configNoTLS)) }
-func TestCtlV3UserListClientTLS(t *testing.T) { testCtl(t, userListTest, withCfg(configClientTLS)) }
-func TestCtlV3UserListPeerTLS(t *testing.T)   { testCtl(t, userListTest, withCfg(configPeerTLS)) }
+func TestCtlV3UserList(t *testing.T)      { testCtl(t, userListTest) }
+func TestCtlV3UserListNoTLS(t *testing.T) { testCtl(t, userListTest, withCfg(*e2e.NewConfigNoTLS())) }
+func TestCtlV3UserListClientTLS(t *testing.T) {
+	testCtl(t, userListTest, withCfg(*e2e.NewConfigClientTLS()))
+}
+func TestCtlV3UserListPeerTLS(t *testing.T) {
+	testCtl(t, userListTest, withCfg(*e2e.NewConfigPeerTLS()))
+}
 func TestCtlV3UserListClientAutoTLS(t *testing.T) {
-	testCtl(t, userListTest, withCfg(configClientAutoTLS))
+	testCtl(t, userListTest, withCfg(*e2e.NewConfigClientAutoTLS()))
 }
-func TestCtlV3UserDelete(t *testing.T)          { testCtl(t, userDelTest) }
-func TestCtlV3UserDeleteNoTLS(t *testing.T)     { testCtl(t, userDelTest, withCfg(configNoTLS)) }
-func TestCtlV3UserDeleteClientTLS(t *testing.T) { testCtl(t, userDelTest, withCfg(configClientTLS)) }
-func TestCtlV3UserDeletePeerTLS(t *testing.T)   { testCtl(t, userDelTest, withCfg(configPeerTLS)) }
+func TestCtlV3UserDelete(t *testing.T)      { testCtl(t, userDelTest) }
+func TestCtlV3UserDeleteNoTLS(t *testing.T) { testCtl(t, userDelTest, withCfg(*e2e.NewConfigNoTLS())) }
+func TestCtlV3UserDeleteClientTLS(t *testing.T) {
+	testCtl(t, userDelTest, withCfg(*e2e.NewConfigClientTLS()))
+}
+func TestCtlV3UserDeletePeerTLS(t *testing.T) {
+	testCtl(t, userDelTest, withCfg(*e2e.NewConfigPeerTLS()))
+}
 func TestCtlV3UserDeleteClientAutoTLS(t *testing.T) {
-	testCtl(t, userDelTest, withCfg(configClientAutoTLS))
+	testCtl(t, userDelTest, withCfg(*e2e.NewConfigClientAutoTLS()))
 }
-func TestCtlV3UserPasswd(t *testing.T)          { testCtl(t, userPasswdTest) }
-func TestCtlV3UserPasswdNoTLS(t *testing.T)     { testCtl(t, userPasswdTest, withCfg(configNoTLS)) }
-func TestCtlV3UserPasswdClientTLS(t *testing.T) { testCtl(t, userPasswdTest, withCfg(configClientTLS)) }
-func TestCtlV3UserPasswdPeerTLS(t *testing.T)   { testCtl(t, userPasswdTest, withCfg(configPeerTLS)) }
+func TestCtlV3UserPasswd(t *testing.T) { testCtl(t, userPasswdTest) }
+func TestCtlV3UserPasswdNoTLS(t *testing.T) {
+	testCtl(t, userPasswdTest, withCfg(*e2e.NewConfigNoTLS()))
+}
+func TestCtlV3UserPasswdClientTLS(t *testing.T) {
+	testCtl(t, userPasswdTest, withCfg(*e2e.NewConfigClientTLS()))
+}
+func TestCtlV3UserPasswdPeerTLS(t *testing.T) {
+	testCtl(t, userPasswdTest, withCfg(*e2e.NewConfigPeerTLS()))
+}
 func TestCtlV3UserPasswdClientAutoTLS(t *testing.T) {
-	testCtl(t, userPasswdTest, withCfg(configClientAutoTLS))
+	testCtl(t, userPasswdTest, withCfg(*e2e.NewConfigClientAutoTLS()))
 }
 
 type userCmdDesc struct {
@@ -171,10 +191,11 @@ func ctlV3User(cx ctlCtx, args []string, expStr string, stdIn []string) error {
 	cmdArgs := append(cx.PrefixArgs(), "user")
 	cmdArgs = append(cmdArgs, args...)
 
-	proc, err := spawnCmd(cmdArgs)
+	proc, err := e2e.SpawnCmd(cmdArgs, cx.envMap)
 	if err != nil {
 		return err
 	}
+	defer proc.Close()
 
 	// Send 'stdIn' strings as input.
 	for _, s := range stdIn {

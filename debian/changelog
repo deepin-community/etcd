@@ -1,3 +1,129 @@
+etcd (3.5.15-7) unstable; urgency=medium
+
+  * Team upload.
+  * Fix autopkgtests, Closes: #1077867
+    - Disable curl-related-tests
+    - debian/tests/functional: Patch functional.yaml for
+      non-standard port-numbers
+
+ -- Reinhard Tartler <siretart@tauware.de>  Thu, 08 Aug 2024 19:24:08 -0400
+
+etcd (3.5.15-6) unstable; urgency=medium
+
+  * Team upload.
+  * Mark autopkgtests 'functional' and 'integration' as flaky
+    to aid testing migration
+
+ -- Reinhard Tartler <siretart@tauware.de>  Sat, 03 Aug 2024 09:53:51 -0400
+
+etcd (3.5.15-5) unstable; urgency=medium
+
+  * Team upload
+
+  [ Mathias Gibbens ]
+  * Include most of tests/ directory as other packages FTBFS without
+    those sources
+  * Restore coreos symlink created by d/golang-etcd-server-dev.links
+
+  [ Reinhard Tartler ]
+  * tests/functional: Make etcdutl available
+  * Avoid dangling symlinks in the -dev package
+
+ -- Mathias Gibbens <gibmat@debian.org>  Sat, 03 Aug 2024 04:48:17 +0000
+
+etcd (3.5.15-4) unstable; urgency=medium
+
+  * Drop v3 symlink and install go.mod file
+  * Ignore etcd package without v3 suffix when checking leaking goroutines.
+  * Run short test during build
+  * Drop unused Depends
+    - golang-github-coreos-pkg-dev
+    - golang-github-google-uuid-dev
+  * Ingore contrib dir when building
+  * Fix functional and integration autopkgtest
+
+ -- Shengjing Zhu <zhsj@debian.org>  Thu, 01 Aug 2024 16:25:53 +0800
+
+etcd (3.5.15-3) unstable; urgency=medium
+
+  * Team upload
+  * d/control:
+    - Update list of Breaks in d/control to help hint through migration
+    - Update minimum version of various libraries in Build-Depends and Depends
+  * Add symlinks in d/golang-etcd-server-dev.links to mimic go.mod's replace
+  * Add patch to skip test that fails in salsa CI pipeline
+
+ -- Mathias Gibbens <gibmat@debian.org>  Tue, 30 Jul 2024 07:16:48 +0000
+
+etcd (3.5.15-2) unstable; urgency=medium
+
+  * Team upload
+  * Fix FTBFS due to grpc-middleware v2 API changes
+    - Cherry-pick upstream changes with fixes
+    - Add patch to rip some usage out of a test
+
+ -- Mathias Gibbens <gibmat@debian.org>  Mon, 29 Jul 2024 04:53:56 +0000
+
+etcd (3.5.15-1) unstable; urgency=medium
+
+  [ Mathias Gibbens ]
+  * Team upload
+  * New upstream release (Closes: #991462)
+    - Rebase existing patches
+  * d/control:
+    - Update Build-Depends and Depends
+
+  [ Reinhard Tartler ]
+  * Backport code changes to build against newer grpc-gateway
+  * fix zap logger invocation
+  * only run the short tests
+  * ignore mvcc/backend and api/membership
+  * Rename etcd executable and fix package installation
+
+ -- Reinhard Tartler <siretart@tauware.de>  Sun, 28 Jul 2024 15:26:05 -0400
+
+etcd (3.4.30-3) experimental; urgency=medium
+
+  * Team upload.
+  * compile against grpc 1.64 and grpc-gateway@v2
+
+ -- Reinhard Tartler <siretart@tauware.de>  Sat, 29 Jun 2024 17:18:45 -0400
+
+etcd (3.4.30-2) experimental; urgency=medium
+
+  * Team upload.
+  * build against golang/protobuf@v1.5
+
+ -- Reinhard Tartler <siretart@tauware.de>  Sun, 09 Jun 2024 15:40:28 -0400
+
+etcd (3.4.30-1) unstable; urgency=medium
+
+  * Team upload
+  * New upstream version 3.4.30
+    + CVE-2021-28235 (fixed in 3.4.25): Clearing password after authenticating
+      the user.
+    + CVE-2023-32082 (fixed in 3.4.26): LeaseTimeToLive API may return keys to
+      clients which have no read permission on the keys
+
+ -- Shengjing Zhu <zhsj@debian.org>  Wed, 28 Feb 2024 17:43:49 +0800
+
+etcd (3.4.23-6) unstable; urgency=medium
+
+  * Team upload
+  * Add a patch to skip flaky test that failed on 3/10 buildds
+
+ -- Mathias Gibbens <gibmat@debian.org>  Sat, 17 Feb 2024 00:31:39 +0000
+
+etcd (3.4.23-5) unstable; urgency=medium
+
+  * Team upload
+  * d/control:
+    - Replace transitional golang-goprotobuf-dev package
+    - Allow golang-github-golang-protobuf-1-5-dev as optional Depends
+  * Add a patch to skip tests that fail in some environments
+
+ -- Mathias Gibbens <gibmat@debian.org>  Fri, 16 Feb 2024 22:07:53 +0000
+
 etcd (3.4.23-4) unstable; urgency=medium
 
   * Team upload.
